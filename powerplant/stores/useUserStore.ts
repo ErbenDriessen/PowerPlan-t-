@@ -17,6 +17,9 @@ type UserState = {
 
   setName: (n: string) => void;
   toggleGoal: (g: string) => void;
+  addGoal: (g: string) => void;
+  removeGoal: (g: string) => void;
+  renameGoal: (oldG: string, newG: string) => void;
   bumpHour: (d: number) => void;
   bumpMin: (d: number) => void;
   addPoints: (delta: number, ringDelta: number) => void;
@@ -74,6 +77,19 @@ export const useUserStore = create<UserState>()(
         set((s) => ({
           goals: s.goals.includes(g) ? s.goals.filter((x) => x !== g) : [...s.goals, g],
         })),
+      addGoal: (g) => {
+        const trimmed = g.trim();
+        if (!trimmed) return;
+        set((s) => (s.goals.includes(trimmed) ? s : { goals: [...s.goals, trimmed] }));
+      },
+      removeGoal: (g) => set((s) => ({ goals: s.goals.filter((x) => x !== g) })),
+      renameGoal: (oldG, newG) => {
+        const trimmed = newG.trim();
+        if (!trimmed) return;
+        set((s) => ({
+          goals: s.goals.map((x) => (x === oldG ? trimmed : x)),
+        }));
+      },
       bumpHour: (d) => set((s) => ({ bedH: (s.bedH + d + 24) % 24 })),
       bumpMin: (d) => set((s) => ({ bedM: (s.bedM + d + 60) % 60 })),
       addPoints: (delta, ringDelta) =>

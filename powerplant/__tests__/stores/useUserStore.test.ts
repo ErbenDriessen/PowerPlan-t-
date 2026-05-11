@@ -47,6 +47,33 @@ describe("useUserStore", () => {
     expect(useUserStore.getState().goals).toEqual([]);
   });
 
+  it("addGoal trims, ignores empty input, and skips duplicates", () => {
+    act(() => useUserStore.getState().addGoal("  Minder stress  "));
+    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
+    act(() => useUserStore.getState().addGoal("Minder stress"));
+    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
+    act(() => useUserStore.getState().addGoal("   "));
+    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
+  });
+
+  it("removeGoal drops just the matching goal", () => {
+    useUserStore.setState({ goals: ["A", "B", "C"] });
+    act(() => useUserStore.getState().removeGoal("B"));
+    expect(useUserStore.getState().goals).toEqual(["A", "C"]);
+  });
+
+  it("renameGoal replaces the goal in place and trims the new name", () => {
+    useUserStore.setState({ goals: ["Minder stress", "Beter slapen"] });
+    act(() => useUserStore.getState().renameGoal("Beter slapen", "  Eerder naar bed  "));
+    expect(useUserStore.getState().goals).toEqual(["Minder stress", "Eerder naar bed"]);
+  });
+
+  it("renameGoal with empty string is a no-op", () => {
+    useUserStore.setState({ goals: ["A"] });
+    act(() => useUserStore.getState().renameGoal("A", "   "));
+    expect(useUserStore.getState().goals).toEqual(["A"]);
+  });
+
   it("bumpHour wraps 0-23", () => {
     act(() => useUserStore.getState().bumpHour(1));
     expect(useUserStore.getState().bedH).toBe(0);

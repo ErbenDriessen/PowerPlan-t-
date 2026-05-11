@@ -1,10 +1,20 @@
 // powerplant/app/(tabs)/planning.tsx
-import { ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
-import { SoftButton } from "../../components/buttons";
+import { PrimaryButton, SoftButton } from "../../components/buttons";
 import {
   getPlannedDay,
   getSuggestion,
@@ -19,13 +29,46 @@ const TONE_BG: Record<PlanTone, string> = {
   neutral: "bg-white/[0.06] border border-white/10",
 };
 
+type GoalEdit =
+  | { mode: "add"; value: string }
+  | { mode: "edit"; original: string; value: string };
+
 export default function Planning() {
   const goals = useUserStore((s) => s.goals);
+  const addGoal = useUserStore((s) => s.addGoal);
+  const removeGoal = useUserStore((s) => s.removeGoal);
+  const renameGoal = useUserStore((s) => s.renameGoal);
 
-  // Both calls hit the AI calendar boundary module. Replacing those
-  // function bodies with real logic is enough — this screen is agnostic.
+  const [editing, setEditing] = useState<GoalEdit | null>(null);
+
   const timeline = getPlannedDay();
   const suggestion = getSuggestion();
+
+  const openAdd = () => setEditing({ mode: "add", value: "" });
+  const openEdit = (goal: string) =>
+    setEditing({ mode: "edit", original: goal, value: goal });
+  const closeModal = () => setEditing(null);
+
+  const submitGoal = () => {
+    if (!editing) return;
+    const value = editing.value.trim();
+    if (!value) {
+      closeModal();
+      return;
+    }
+    if (editing.mode === "add") {
+      addGoal(value);
+    } else if (value !== editing.original) {
+      renameGoal(editing.original, value);
+    }
+    closeModal();
+  };
+
+  const deleteCurrent = () => {
+    if (editing?.mode !== "edit") return;
+    removeGoal(editing.original);
+    closeModal();
+  };
 
   return (
     <View className="flex-1">
@@ -42,24 +85,41 @@ export default function Planning() {
           Mijn doelen
         </Text>
         <GlassCard className="p-4 mb-5">
+          {goals.length === 0 && (
+            <Text className="text-white/55 text-sm py-2">
+              Nog geen doelen. Voeg er hieronder een toe.
+            </Text>
+          )}
           {goals.map((g, i) => (
-            <View
+            <Pressable
               key={g}
+              onPress={() => openEdit(g)}
               className={`flex-row items-center gap-3 py-2 ${
                 i < goals.length - 1 ? "border-b border-white/10" : ""
               }`}
             >
-              <View className="w-6 h-6 rounded-full bg-primary border-2 border-primary" />
+              <Text style={{ fontSize: 18 }}>🎯</Text>
               <Text className="text-white text-sm font-semibold flex-1">{g}</Text>
-              <Text className="text-white/45 text-xs">deze week</Text>
-            </View>
+              <Pressable
+                hitSlop={10}
+                onPress={() => removeGoal(g)}
+                className="w-7 h-7 items-center justify-center rounded-full bg-white/[0.06]"
+              >
+                <Text className="text-white/55 text-base">×</Text>
+              </Pressable>
+            </Pressable>
           ))}
-          <View className="flex-row items-center gap-3 py-3 border-t border-white/10 mt-1">
+          <Pressable
+            onPress={openAdd}
+            className={`flex-row items-center gap-3 py-3 mt-1 ${
+              goals.length > 0 ? "border-t border-white/10" : ""
+            }`}
+          >
             <View className="w-6 h-6 rounded-full bg-white/15 items-center justify-center">
               <Text className="text-white font-bold">+</Text>
             </View>
             <Text className="text-white/65 text-sm font-bold">Doel toevoegen</Text>
-          </View>
+          </Pressable>
         </GlassCard>
 
         <View className="flex-row items-center gap-2 px-1 mb-2">
@@ -133,6 +193,58 @@ export default function Planning() {
           Je kunt alles aanpassen — niets is verplicht.
         </Text>
       </ScrollView>
+
+      {/* Goal add/edit modal */}
+      <Modal
+        visible={editing !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 justify-center px-6 bg-black/60"
+        >
+          <View className="bg-night border border-white/15 rounded-3xl p-5">
+            <Text className="text-white text-lg font-extrabold mb-1">
+              {editing?.mode === "add" ? "Nieuw doel" : "Doel bewerken"}
+            </Text>
+            <Text className="text-white/55 text-xs mb-4">
+              Een doel is iets waar je aan wil werken — bijvoorbeeld "Minder stress" of
+              "Beter slapen".
+            </Text>
+            <TextInput
+              value={editing?.value ?? ""}
+              onChangeText={(t) =>
+                setEditing((prev) => (prev ? { ...prev, value: t } : prev))
+              }
+              placeholder="Bijv. Minder stress"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={submitGoal}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-3 text-white text-base mb-4"
+            />
+            <View className="flex-row justify-between items-center">
+              {editing?.mode === "edit" ? (
+                <Pressable onPress={deleteCurrent} hitSlop={8}>
+                  <Text className="text-white/55 text-sm font-bold">Verwijderen</Text>
+                </Pressable>
+              ) : (
+                <View />
+              )}
+              <View className="flex-row gap-2">
+                <SoftButton label="Annuleer" onPress={closeModal} />
+                <PrimaryButton
+                  label="Bewaren"
+                  onPress={submitGoal}
+                  className="!py-2 !px-4"
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
