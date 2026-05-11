@@ -20,6 +20,7 @@ type UserState = {
   bumpHour: (d: number) => void;
   bumpMin: (d: number) => void;
   addPoints: (delta: number, ringDelta: number) => void;
+  bumpStreak: (delta: number) => void;
   finishOnboarding: () => void;
   setHasHydrated: (v: boolean) => void;
   devReset: () => void;
@@ -84,6 +85,8 @@ export const useUserStore = create<UserState>()(
             treeStage: pointsToStage(newPoints),
           };
         }),
+      bumpStreak: (delta) =>
+        set((s) => ({ streak: Math.max(0, s.streak + delta) })),
       finishOnboarding: () => {
         const s = get();
         set({

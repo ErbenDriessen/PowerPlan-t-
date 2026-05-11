@@ -4,6 +4,7 @@ import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
+import { useJournalStore } from "../../stores/useJournalStore";
 import { usePrefsStore } from "../../stores/usePrefsStore";
 import {
   pointsToNextThreshold,
@@ -22,13 +23,22 @@ export default function Settings() {
   const name = useUserStore((s) => s.name);
   const treeStage = useUserStore((s) => s.treeStage);
   const points = useUserStore((s) => s.points);
+  const streak = useUserStore((s) => s.streak);
   const addPoints = useUserStore((s) => s.addPoints);
-  const devReset = useUserStore((s) => s.devReset);
+  const bumpStreak = useUserStore((s) => s.bumpStreak);
+  const userDevReset = useUserStore((s) => s.devReset);
+  const journalDevReset = useJournalStore((s) => s.devReset);
+  const journalEntryCount = useJournalStore((s) => s.entries.length);
   const prefs = usePrefsStore();
 
   const stageLabel = STAGE_LABELS[treeStage - 1] ?? "Boom";
   const nextThreshold = pointsToNextThreshold(points);
   const pointsToNext = nextThreshold !== null ? nextThreshold - points : 0;
+
+  const resetAll = () => {
+    userDevReset();
+    journalDevReset();
+  };
 
   return (
     <View className="flex-1">
@@ -123,7 +133,9 @@ export default function Settings() {
         <Text className="text-white/55 text-xs font-bold uppercase tracking-widest px-1 mb-2">
           🛠️ Dev · alleen voor testen
         </Text>
-        <GlassCard className="mb-5 p-4">
+
+        {/* Punten + stadium */}
+        <GlassCard className="mb-3 p-4">
           <Text className="text-white text-sm font-semibold mb-1">
             {points} punten · Stadium {treeStage}/7 · {stageLabel}
           </Text>
@@ -157,11 +169,60 @@ export default function Settings() {
             >
               <Text className="text-white font-bold text-sm">-50</Text>
             </Pressable>
+          </View>
+        </GlassCard>
+
+        {/* Streak */}
+        <GlassCard className="mb-3 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            Streak: {streak} {streak === 1 ? "dag" : "dagen"}
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            Streak-logica is nog niet geautomatiseerd — hier handmatig zetten om de UI te
+            testen.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
             <Pressable
-              onPress={devReset}
+              onPress={() => bumpStreak(1)}
+              className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">+1 dag</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => bumpStreak(-1)}
               className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
             >
-              <Text className="text-white font-bold text-sm">Reset</Text>
+              <Text className="text-white font-bold text-sm">-1 dag</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => bumpStreak(-streak)}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Op 0</Text>
+            </Pressable>
+          </View>
+        </GlassCard>
+
+        {/* Dagboek + reset alles */}
+        <GlassCard className="mb-5 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            Dagboek: {journalEntryCount} {journalEntryCount === 1 ? "entry" : "entries"}
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            Oude seed-entries kunnen blijven hangen in opslag. Hieronder wis je ze.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <Pressable
+              onPress={journalDevReset}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Wis dagboek</Text>
+            </Pressable>
+            <Pressable
+              onPress={resetAll}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Reset alles</Text>
             </Pressable>
           </View>
         </GlassCard>

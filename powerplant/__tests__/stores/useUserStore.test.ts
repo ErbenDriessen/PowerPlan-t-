@@ -109,6 +109,15 @@ describe("useUserStore", () => {
     expect(STAGE_THRESHOLDS[0]).toBe(0);
   });
 
+  it("bumpStreak adjusts streak and clamps at zero", () => {
+    act(() => useUserStore.getState().bumpStreak(3));
+    expect(useUserStore.getState().streak).toBe(3);
+    act(() => useUserStore.getState().bumpStreak(-1));
+    expect(useUserStore.getState().streak).toBe(2);
+    act(() => useUserStore.getState().bumpStreak(-99));
+    expect(useUserStore.getState().streak).toBe(0);
+  });
+
   it("devReset zeros points/ring/stage/streak but keeps profile fields", () => {
     useUserStore.setState({
       name: "Erben",

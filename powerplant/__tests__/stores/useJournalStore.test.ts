@@ -38,4 +38,14 @@ describe("useJournalStore", () => {
     expect(s.todayEntryId).toBe(id);
     expect(s.entries.find((e) => e.id === id)?.text).toBe("B");
   });
+
+  it("devReset wipes entries and todayEntryId", () => {
+    act(() =>
+      useJournalStore.getState().upsertToday({ date: "do 11 mei", mood: "blij", text: "Hi" }),
+    );
+    expect(useJournalStore.getState().entries.length).toBe(1);
+    act(() => useJournalStore.getState().devReset());
+    expect(useJournalStore.getState().entries).toEqual([]);
+    expect(useJournalStore.getState().todayEntryId).toBeNull();
+  });
 });

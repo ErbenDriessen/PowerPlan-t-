@@ -12,6 +12,7 @@ type JournalState = {
   entries: Entry[];
   todayEntryId: string | null;
   upsertToday: (input: { date: string; mood: Mood; text: string }) => void;
+  devReset: () => void;
 };
 
 export const useJournalStore = create<JournalState>()(
@@ -33,6 +34,7 @@ export const useJournalStore = create<JournalState>()(
           }));
         }
       },
+      devReset: () => set({ entries: [], todayEntryId: null }),
     }),
     { name: "powerplant-journal", storage: createJSONStorage(() => AsyncStorage) },
   ),
