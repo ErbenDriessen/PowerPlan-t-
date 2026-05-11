@@ -1,11 +1,10 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { DuskBackground } from "../components/DuskBackground";
 
 export default function Index() {
   return (
-    <View className="flex-1 items-center justify-center bg-night">
-      <Text style={{ fontFamily: "Nunito_800ExtraBold" }} className="text-primary-soft text-3xl">
-        Powerplan(t)
-      </Text>
+    <View className="flex-1">
+      <DuskBackground />
     </View>
   );
 }
