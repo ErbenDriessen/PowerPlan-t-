@@ -1,4 +1,5 @@
 // powerplant/app/(tabs)/home.tsx
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
@@ -28,6 +29,7 @@ export default function Home() {
     const wasDone = tasks.find((t) => t.id === id)?.done;
     toggleTask(id);
     addPoints(wasDone ? -10 : 10, wasDone ? -0.06 : 0.06);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
   const bed = `${String(bedH).padStart(2, "0")}:${String(bedM).padStart(2, "0")}`;

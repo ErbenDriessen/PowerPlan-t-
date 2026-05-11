@@ -1,4 +1,5 @@
 // powerplant/app/focus/setup.tsx
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
@@ -97,6 +98,7 @@ export default function FocusSetup() {
         <PrimaryButton
           label="Start focusblok"
           onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
             start();
             router.push("/focus/running" as any);
           }}
