@@ -1,12 +1,12 @@
 import { View } from "react-native";
 import { DuskBackground } from "../components/DuskBackground";
-import { Mascot } from "../components/Mascot";
+import { Tree } from "../components/Tree";
 
 export default function Index() {
   return (
-    <View className="flex-1 items-center justify-center">
+    <View className="flex-1 items-center justify-end pb-20">
       <DuskBackground />
-      <Mascot size={160} breathing="slow" />
+      <Tree size={220} stage={3} />
     </View>
   );
 }
