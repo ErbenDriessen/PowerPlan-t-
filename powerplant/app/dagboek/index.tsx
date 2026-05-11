@@ -6,6 +6,7 @@ import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/buttons";
+import { formatDateNL } from "../../lib/dates";
 import { useJournalStore, Mood } from "../../stores/useJournalStore";
 
 const MOOD_LABEL: Record<Mood, string> = {
@@ -30,6 +31,8 @@ export default function DagboekIndex() {
   const today = entries.find((e) => e.id === todayId);
   const older = entries.filter((e) => e.id !== todayId);
 
+  const todayLabel = formatDateNL(new Date());
+
   return (
     <View className="flex-1">
       <DuskBackground />
@@ -53,7 +56,7 @@ export default function DagboekIndex() {
         <GlassCard variant="warm" className="p-5 mb-5">
           <View className="flex-row justify-between mb-2">
             <Text className="text-yellow text-xs font-bold uppercase tracking-widest">
-              Vandaag · do 11 mei
+              Vandaag · {todayLabel}
             </Text>
             <Text className="text-white/55 text-[10px] font-bold">
               {today ? MOOD_LABEL[today.mood] : "nog niet geschreven"}

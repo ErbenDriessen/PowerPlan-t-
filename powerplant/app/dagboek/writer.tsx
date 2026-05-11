@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { MoodPicker } from "../../components/MoodPicker";
 import { SoftButton } from "../../components/buttons";
+import { formatDateNL } from "../../lib/dates";
 import { useJournalStore, Mood } from "../../stores/useJournalStore";
 
 const PROMPTS = [
@@ -23,9 +24,11 @@ export default function Writer() {
   const [mood, setMood] = useState<Mood | null>(today?.mood ?? null);
   const [text, setText] = useState(today?.text ?? "");
 
+  const todayLabel = formatDateNL(new Date());
+
   const save = () => {
     if (!mood) return;
-    upsert({ date: "do 11 mei", mood, text });
+    upsert({ date: todayLabel, mood, text });
     router.back();
   };
 
@@ -51,7 +54,7 @@ export default function Writer() {
 
       <ScrollView contentContainerClassName="px-6 pb-12">
         <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-3">
-          vandaag · do 11 mei
+          vandaag · {todayLabel}
         </Text>
 
         <Text className="text-white text-sm font-bold mb-3">Hoe voel je je?</Text>

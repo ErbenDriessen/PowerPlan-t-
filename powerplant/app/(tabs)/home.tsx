@@ -10,6 +10,7 @@ import { Mascot } from "../../components/Mascot";
 import { ProgressRing } from "../../components/ProgressRing";
 import { TaskRow } from "../../components/TaskRow";
 import { Tree } from "../../components/Tree";
+import { formatDateNL, greetingForHour } from "../../lib/dates";
 import { useTasksStore } from "../../stores/useTasksStore";
 import { STAGE_LABELS, useUserStore } from "../../stores/useUserStore";
 
@@ -33,6 +34,9 @@ export default function Home() {
   };
 
   const bed = `${String(bedH).padStart(2, "0")}:${String(bedM).padStart(2, "0")}`;
+  const today = new Date();
+  const greeting = greetingForHour(today.getHours());
+  const todayLabel = formatDateNL(today);
 
   return (
     <View className="flex-1">
@@ -42,7 +46,7 @@ export default function Home() {
       <View className="px-6 pt-2 flex-row justify-between items-center">
         <View>
           <Text className="text-white/55 text-xs font-bold uppercase tracking-widest">
-            Goedemorgen
+            {greeting}
           </Text>
           <Text className="text-white text-2xl font-extrabold">Hoi, {name || "Vriend"}</Text>
         </View>
@@ -84,7 +88,7 @@ export default function Home() {
         <GlassCard className="p-5 mb-4">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-white font-extrabold">Vandaag</Text>
-            <Text className="text-white/55 text-xs font-bold">do · 11 mei</Text>
+            <Text className="text-white/55 text-xs font-bold">{todayLabel}</Text>
           </View>
           {tasks.map((t) => (
             <TaskRow

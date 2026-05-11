@@ -5,6 +5,7 @@ import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { Tree } from "../../components/Tree";
+import { getISOWeek } from "../../lib/dates";
 import { useUserStore } from "../../stores/useUserStore";
 
 const WEEK = [
@@ -21,6 +22,8 @@ export default function MijnBoom() {
   const points = useUserStore((s) => s.points);
   const treeStage = useUserStore((s) => s.treeStage);
   const streak = useUserStore((s) => s.streak);
+
+  const weekNumber = getISOWeek(new Date());
 
   return (
     <View className="flex-1">
@@ -63,7 +66,7 @@ export default function MijnBoom() {
         <GlassCard className="p-4 mb-4">
           <View className="flex-row justify-between mb-3">
             <Text className="text-white font-extrabold text-sm">Deze week</Text>
-            <Text className="text-white/45 text-xs font-bold">week 19</Text>
+            <Text className="text-white/45 text-xs font-bold">week {weekNumber}</Text>
           </View>
           <View className="flex-row" style={{ gap: 6 }}>
             {WEEK.map((d, i) => (
