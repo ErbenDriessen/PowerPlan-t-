@@ -93,7 +93,7 @@ export default function Onboarding() {
                 <Chip
                   key={g}
                   label={g}
-                  selected={goals.includes(g)}
+                  selected={goals.some((x) => x.title === g)}
                   onPress={() => toggleGoal(g)}
                 />
               ))}

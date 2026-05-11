@@ -40,38 +40,66 @@ describe("useUserStore", () => {
     expect(useUserStore.getState().name).toBe("Erben");
   });
 
-  it("toggleGoal adds and removes a goal", () => {
+  it("toggleGoal adds a goal-object by title and removes it on the second call", () => {
     act(() => useUserStore.getState().toggleGoal("Minder stress"));
-    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
+    const after1 = useUserStore.getState().goals;
+    expect(after1).toHaveLength(1);
+    expect(after1[0].title).toBe("Minder stress");
+    expect(after1[0].description).toBe("");
+    expect(after1[0].done).toBe(false);
+    expect(after1[0].id).toMatch(/^g/);
+
     act(() => useUserStore.getState().toggleGoal("Minder stress"));
     expect(useUserStore.getState().goals).toEqual([]);
   });
 
-  it("addGoal trims, ignores empty input, and skips duplicates", () => {
-    act(() => useUserStore.getState().addGoal("  Minder stress  "));
-    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
-    act(() => useUserStore.getState().addGoal("Minder stress"));
-    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
-    act(() => useUserStore.getState().addGoal("   "));
-    expect(useUserStore.getState().goals).toEqual(["Minder stress"]);
+  it("addGoal stores title + description, trims, skips empty + duplicates", () => {
+    act(() =>
+      useUserStore
+        .getState()
+        .addGoal({ title: "  Minder stress  ", description: "  ademen  " }),
+    );
+    let goals = useUserStore.getState().goals;
+    expect(goals).toHaveLength(1);
+    expect(goals[0].title).toBe("Minder stress");
+    expect(goals[0].description).toBe("ademen");
+
+    act(() => useUserStore.getState().addGoal({ title: "Minder stress" }));
+    expect(useUserStore.getState().goals).toHaveLength(1);
+
+    act(() => useUserStore.getState().addGoal({ title: "   " }));
+    expect(useUserStore.getState().goals).toHaveLength(1);
   });
 
-  it("removeGoal drops just the matching goal", () => {
-    useUserStore.setState({ goals: ["A", "B", "C"] });
-    act(() => useUserStore.getState().removeGoal("B"));
-    expect(useUserStore.getState().goals).toEqual(["A", "C"]);
+  it("updateGoal can change title and description, but refuses an empty title", () => {
+    act(() => useUserStore.getState().addGoal({ title: "A", description: "" }));
+    const id = useUserStore.getState().goals[0].id;
+
+    act(() => useUserStore.getState().updateGoal(id, { title: "B", description: "X" }));
+    const g = useUserStore.getState().goals[0];
+    expect(g.title).toBe("B");
+    expect(g.description).toBe("X");
+
+    act(() => useUserStore.getState().updateGoal(id, { title: "   " }));
+    expect(useUserStore.getState().goals[0].title).toBe("B");
   });
 
-  it("renameGoal replaces the goal in place and trims the new name", () => {
-    useUserStore.setState({ goals: ["Minder stress", "Beter slapen"] });
-    act(() => useUserStore.getState().renameGoal("Beter slapen", "  Eerder naar bed  "));
-    expect(useUserStore.getState().goals).toEqual(["Minder stress", "Eerder naar bed"]);
+  it("removeGoal drops just the matching id", () => {
+    act(() => useUserStore.getState().addGoal({ title: "A" }));
+    act(() => useUserStore.getState().addGoal({ title: "B" }));
+    act(() => useUserStore.getState().addGoal({ title: "C" }));
+    const bId = useUserStore.getState().goals[1].id;
+    act(() => useUserStore.getState().removeGoal(bId));
+    expect(useUserStore.getState().goals.map((g) => g.title)).toEqual(["A", "C"]);
   });
 
-  it("renameGoal with empty string is a no-op", () => {
-    useUserStore.setState({ goals: ["A"] });
-    act(() => useUserStore.getState().renameGoal("A", "   "));
-    expect(useUserStore.getState().goals).toEqual(["A"]);
+  it("toggleGoalDone flips the done flag on the matching id", () => {
+    act(() => useUserStore.getState().addGoal({ title: "A" }));
+    const id = useUserStore.getState().goals[0].id;
+    act(() => useUserStore.getState().toggleGoalDone(id));
+    expect(useUserStore.getState().goals[0].done).toBe(true);
+    act(() => useUserStore.getState().toggleGoalDone(id));
+    expect(useUserStore.getState().goals[0].done).toBe(false);
   });
 
   it("bumpHour wraps 0-23", () => {
@@ -148,7 +176,7 @@ describe("useUserStore", () => {
   it("devReset zeros points/ring/stage/streak but keeps profile fields", () => {
     useUserStore.setState({
       name: "Erben",
-      goals: ["Minder stress"],
+      goals: [{ id: "g1", title: "Minder stress", description: "", done: false }],
       points: 400,
       ringProgress: 0.8,
       treeStage: 5,
@@ -163,7 +191,8 @@ describe("useUserStore", () => {
     expect(s.streak).toBe(0);
     // profile preserved
     expect(s.name).toBe("Erben");
-    expect(s.goals).toEqual(["Minder stress"]);
+    expect(s.goals).toHaveLength(1);
+    expect(s.goals[0].title).toBe("Minder stress");
     expect(s.hasOnboarded).toBe(true);
   });
 });

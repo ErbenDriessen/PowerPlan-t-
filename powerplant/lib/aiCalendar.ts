@@ -73,11 +73,11 @@ export type PlanSuggestion = {
 // weghalen of vervangen.
 
 const PLACEHOLDER_BLOCKS: PlanBlock[] = [
-  { time: "08:30", label: "Niet", sub: "15 min", emoji: "🚶", tone: "primary" },
-  { time: "10:00", label: "Mijn", sub: "tot 12:30", emoji: "📚", tone: "bark" },
-  { time: "13:00", label: "Epic", sub: "45 min focus", emoji: "🎯", tone: "primary" },
-  { time: "17:30", label: "Lol", sub: "rustig moment", emoji: "🍽️", tone: "neutral" },
-  { time: "20:30", label: ":)", sub: "ademen · 10 min", emoji: "🧘", tone: "warm" },
+  { time: "08:30", label: "Niet", sub: "1", emoji: "🚶", tone: "primary" },
+  { time: "10:00", label: "Mijn", sub: "2", emoji: "📚", tone: "bark" },
+  { time: "13:00", label: "Epic", sub: "3", emoji: "🎯", tone: "primary" },
+  { time: "17:30", label: "Lol", sub: "4", emoji: "🍽️", tone: "neutral" },
+  { time: "20:30", label: ":)", sub: "5", emoji: "🧘", tone: "warm" },
 ];
 
 // 1) Geeft het dagschema terug.
@@ -100,3 +100,5 @@ export function getPlannedDay(): PlanBlock[] {
 export function getSuggestion(): PlanSuggestion | null {
   return null;
 }
+
+// ik heb dit bestand gemaakt zodat we hopelijk aan het einde geen problemen hebben met merdgen

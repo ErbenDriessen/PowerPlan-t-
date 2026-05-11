@@ -3,9 +3,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+export type Goal = {
+  id: string;
+  title: string;
+  description: string;
+  done: boolean;
+};
+
 type UserState = {
   name: string;
-  goals: string[];
+  goals: Goal[];
   bedH: number;
   bedM: number;
   hasOnboarded: boolean;
@@ -16,10 +23,11 @@ type UserState = {
   hasHydrated: boolean;
 
   setName: (n: string) => void;
-  toggleGoal: (g: string) => void;
-  addGoal: (g: string) => void;
-  removeGoal: (g: string) => void;
-  renameGoal: (oldG: string, newG: string) => void;
+  toggleGoal: (title: string) => void;
+  addGoal: (input: { title: string; description?: string }) => void;
+  updateGoal: (id: string, input: { title?: string; description?: string }) => void;
+  removeGoal: (id: string) => void;
+  toggleGoalDone: (id: string) => void;
   bumpHour: (d: number) => void;
   bumpMin: (d: number) => void;
   addPoints: (delta: number, ringDelta: number) => void;
@@ -29,7 +37,7 @@ type UserState = {
   devReset: () => void;
 };
 
-const DEFAULT_GOALS = ["Minder stress", "Beter focussen", "Betere slaap"];
+const DEFAULT_GOAL_TITLES = ["Minder stress", "Beter focussen", "Betere slaap"];
 
 // Point threshold (inclusive) at which each stage unlocks. Index = stage - 1.
 export const STAGE_THRESHOLDS = [0, 50, 100, 200, 350, 500, 750] as const;
@@ -58,6 +66,14 @@ export function pointsToNextThreshold(points: number): number | null {
   return STAGE_THRESHOLDS[stage];
 }
 
+function newGoalId(): string {
+  return "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function makeGoal(title: string, description = ""): Goal {
+  return { id: newGoalId(), title: title.trim(), description: description.trim(), done: false };
+}
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
@@ -73,23 +89,41 @@ export const useUserStore = create<UserState>()(
       hasHydrated: false,
 
       setName: (n) => set({ name: n.trim() }),
-      toggleGoal: (g) =>
+      toggleGoal: (title) => {
+        const trimmed = title.trim();
+        if (!trimmed) return;
+        set((s) => {
+          const existing = s.goals.find((g) => g.title === trimmed);
+          if (existing) {
+            return { goals: s.goals.filter((g) => g.id !== existing.id) };
+          }
+          return { goals: [...s.goals, makeGoal(trimmed)] };
+        });
+      },
+      addGoal: ({ title, description = "" }) => {
+        const trimmed = title.trim();
+        if (!trimmed) return;
+        set((s) => {
+          if (s.goals.some((g) => g.title === trimmed)) return s;
+          return { goals: [...s.goals, makeGoal(trimmed, description)] };
+        });
+      },
+      updateGoal: (id, input) =>
         set((s) => ({
-          goals: s.goals.includes(g) ? s.goals.filter((x) => x !== g) : [...s.goals, g],
+          goals: s.goals.map((g) => {
+            if (g.id !== id) return g;
+            const nextTitle = input.title !== undefined ? input.title.trim() : g.title;
+            const nextDesc =
+              input.description !== undefined ? input.description.trim() : g.description;
+            if (!nextTitle) return g; // refuse to wipe the title
+            return { ...g, title: nextTitle, description: nextDesc };
+          }),
         })),
-      addGoal: (g) => {
-        const trimmed = g.trim();
-        if (!trimmed) return;
-        set((s) => (s.goals.includes(trimmed) ? s : { goals: [...s.goals, trimmed] }));
-      },
-      removeGoal: (g) => set((s) => ({ goals: s.goals.filter((x) => x !== g) })),
-      renameGoal: (oldG, newG) => {
-        const trimmed = newG.trim();
-        if (!trimmed) return;
+      removeGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
+      toggleGoalDone: (id) =>
         set((s) => ({
-          goals: s.goals.map((x) => (x === oldG ? trimmed : x)),
-        }));
-      },
+          goals: s.goals.map((g) => (g.id === id ? { ...g, done: !g.done } : g)),
+        })),
       bumpHour: (d) => set((s) => ({ bedH: (s.bedH + d + 24) % 24 })),
       bumpMin: (d) => set((s) => ({ bedM: (s.bedM + d + 60) % 60 })),
       addPoints: (delta, ringDelta) =>
@@ -105,10 +139,13 @@ export const useUserStore = create<UserState>()(
         set((s) => ({ streak: Math.max(0, s.streak + delta) })),
       finishOnboarding: () => {
         const s = get();
+        const goals: Goal[] = s.goals.length
+          ? s.goals
+          : DEFAULT_GOAL_TITLES.map((t) => makeGoal(t));
         set({
           hasOnboarded: true,
           name: s.name || "Vriend",
-          goals: s.goals.length ? s.goals : DEFAULT_GOALS,
+          goals,
         });
       },
       setHasHydrated: (v) => set({ hasHydrated: v }),
@@ -117,7 +154,17 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: "powerplant-user",
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      // v1 stored goals as string[]. Throw the old goals away on upgrade so
+      // the rest of the persisted data (name, bedtime, points...) survives.
+      migrate: (persisted: unknown, version) => {
+        const obj = (persisted ?? {}) as Record<string, unknown>;
+        if (version < 2) {
+          return { ...obj, goals: [] };
+        }
+        return obj;
+      },
       onRehydrateStorage: () => (state) => state?.setHasHydrated(true),
     },
   ),

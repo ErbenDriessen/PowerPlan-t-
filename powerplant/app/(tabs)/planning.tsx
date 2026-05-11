@@ -30,43 +30,43 @@ const TONE_BG: Record<PlanTone, string> = {
 };
 
 type GoalEdit =
-  | { mode: "add"; value: string }
-  | { mode: "edit"; original: string; value: string };
+  | { mode: "add"; title: string; description: string }
+  | { mode: "edit"; id: string; title: string; description: string };
 
 export default function Planning() {
   const goals = useUserStore((s) => s.goals);
   const addGoal = useUserStore((s) => s.addGoal);
+  const updateGoal = useUserStore((s) => s.updateGoal);
   const removeGoal = useUserStore((s) => s.removeGoal);
-  const renameGoal = useUserStore((s) => s.renameGoal);
 
   const [editing, setEditing] = useState<GoalEdit | null>(null);
 
   const timeline = getPlannedDay();
   const suggestion = getSuggestion();
 
-  const openAdd = () => setEditing({ mode: "add", value: "" });
-  const openEdit = (goal: string) =>
-    setEditing({ mode: "edit", original: goal, value: goal });
+  const openAdd = () => setEditing({ mode: "add", title: "", description: "" });
+  const openEdit = (g: { id: string; title: string; description: string }) =>
+    setEditing({ mode: "edit", id: g.id, title: g.title, description: g.description });
   const closeModal = () => setEditing(null);
 
   const submitGoal = () => {
     if (!editing) return;
-    const value = editing.value.trim();
-    if (!value) {
+    const title = editing.title.trim();
+    if (!title) {
       closeModal();
       return;
     }
     if (editing.mode === "add") {
-      addGoal(value);
-    } else if (value !== editing.original) {
-      renameGoal(editing.original, value);
+      addGoal({ title, description: editing.description });
+    } else {
+      updateGoal(editing.id, { title, description: editing.description });
     }
     closeModal();
   };
 
   const deleteCurrent = () => {
     if (editing?.mode !== "edit") return;
-    removeGoal(editing.original);
+    removeGoal(editing.id);
     closeModal();
   };
 
@@ -92,17 +92,22 @@ export default function Planning() {
           )}
           {goals.map((g, i) => (
             <Pressable
-              key={g}
+              key={g.id}
               onPress={() => openEdit(g)}
               className={`flex-row items-center gap-3 py-2 ${
                 i < goals.length - 1 ? "border-b border-white/10" : ""
               }`}
             >
               <Text style={{ fontSize: 18 }}>🎯</Text>
-              <Text className="text-white text-sm font-semibold flex-1">{g}</Text>
+              <View className="flex-1">
+                <Text className="text-white text-sm font-semibold">{g.title}</Text>
+                {g.description.length > 0 && (
+                  <Text className="text-white/55 text-xs">{g.description}</Text>
+                )}
+              </View>
               <Pressable
                 hitSlop={10}
-                onPress={() => removeGoal(g)}
+                onPress={() => removeGoal(g.id)}
                 className="w-7 h-7 items-center justify-center rounded-full bg-white/[0.06]"
               >
                 <Text className="text-white/55 text-base">×</Text>
@@ -210,20 +215,31 @@ export default function Planning() {
               {editing?.mode === "add" ? "Nieuw doel" : "Doel bewerken"}
             </Text>
             <Text className="text-white/55 text-xs mb-4">
-              Een doel is iets waar je aan wil werken — bijvoorbeeld "Minder stress" of
-              "Beter slapen".
+              Geef je doel een korte titel en eventueel een beschrijving.
             </Text>
             <TextInput
-              value={editing?.value ?? ""}
+              value={editing?.title ?? ""}
               onChangeText={(t) =>
-                setEditing((prev) => (prev ? { ...prev, value: t } : prev))
+                setEditing((prev) => (prev ? { ...prev, title: t } : prev))
               }
-              placeholder="Bijv. Minder stress"
+              placeholder="Titel — bv. Wandelen"
               placeholderTextColor="rgba(255,255,255,0.35)"
               autoFocus
+              returnKeyType="next"
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-3 text-white text-base mb-3"
+            />
+            <TextInput
+              value={editing?.description ?? ""}
+              onChangeText={(t) =>
+                setEditing((prev) => (prev ? { ...prev, description: t } : prev))
+              }
+              placeholder="Beschrijving — bv. 15 min, buiten (optioneel)"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               returnKeyType="done"
               onSubmitEditing={submitGoal}
+              multiline
               className="bg-white/10 border border-white/15 rounded-2xl px-4 py-3 text-white text-base mb-4"
+              style={{ minHeight: 60, textAlignVertical: "top" }}
             />
             <View className="flex-row justify-between items-center">
               {editing?.mode === "edit" ? (
