@@ -9,6 +9,7 @@ beforeEach(() => {
     bedH: 23,
     bedM: 15,
     hasOnboarded: false,
+    hasHydrated: false,
     points: 240,
     ringProgress: 0.6,
     treeStage: 3,
@@ -66,5 +67,10 @@ describe("useUserStore", () => {
     const s = useUserStore.getState();
     expect(s.hasOnboarded).toBe(true);
     expect(s.goals.length).toBeGreaterThan(0);
+  });
+
+  it("setHasHydrated flips the flag", () => {
+    act(() => useUserStore.getState().setHasHydrated(true));
+    expect(useUserStore.getState().hasHydrated).toBe(true);
   });
 });
