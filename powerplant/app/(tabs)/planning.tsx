@@ -5,19 +5,14 @@ import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { SoftButton } from "../../components/buttons";
+import {
+  getPlannedDay,
+  getSuggestion,
+  PlanTone,
+} from "../../lib/aiCalendar";
 import { useUserStore } from "../../stores/useUserStore";
 
-type Block = { time: string; label: string; sub: string; emoji: string; tone: "primary" | "bark" | "warm" | "neutral" };
-
-const TIMELINE: Block[] = [
-  { time: "08:30", label: "Wandeling", sub: "15 min", emoji: "🚶", tone: "primary" },
-  { time: "10:00", label: "School", sub: "tot 12:30", emoji: "📚", tone: "bark" },
-  { time: "13:00", label: "Studeerblok", sub: "45 min focus", emoji: "🎯", tone: "primary" },
-  { time: "17:30", label: "Eten", sub: "rustig moment", emoji: "🍽️", tone: "neutral" },
-  { time: "20:30", label: "Rustmoment", sub: "ademen · 10 min", emoji: "🧘", tone: "warm" },
-];
-
-const TONE_BG: Record<Block["tone"], string> = {
+const TONE_BG: Record<PlanTone, string> = {
   primary: "bg-primary-soft/15 border border-primary-soft/25",
   bark: "bg-bark/20 border border-bark/25",
   warm: "bg-yellow/15 border border-yellow/25",
@@ -26,6 +21,11 @@ const TONE_BG: Record<Block["tone"], string> = {
 
 export default function Planning() {
   const goals = useUserStore((s) => s.goals);
+
+  // Both calls hit the AI calendar boundary module. Replacing those
+  // function bodies with real logic is enough — this screen is agnostic.
+  const timeline = getPlannedDay();
+  const suggestion = getSuggestion();
 
   return (
     <View className="flex-1">
@@ -73,7 +73,7 @@ export default function Planning() {
         </View>
 
         <GlassCard className="p-5 mb-5">
-          {TIMELINE.map((b, i) => (
+          {timeline.map((b) => (
             <View key={b.time} className="flex-row items-center gap-3 mb-4 last:mb-0">
               <Text className="w-10 text-white/55 text-xs font-bold tabular-nums">{b.time}</Text>
               <View className="w-3 h-3 rounded-full bg-primary-soft" />
@@ -93,20 +93,41 @@ export default function Planning() {
           ))}
         </GlassCard>
 
-        <GlassCard variant="warm" className="p-4 mb-5 flex-row items-start gap-3">
-          <Text style={{ fontSize: 22 }}>💡</Text>
-          <View className="flex-1">
-            <Text className="text-white text-sm font-semibold mb-2">
-              Je planning is best vol. Zullen we het studeerblok inkorten?
-            </Text>
-            <View className="flex-row gap-2">
-              <View className="bg-yellow rounded-xl px-3 py-2">
-                <Text className="text-deep text-xs font-bold">Verplaatsen</Text>
-              </View>
-              <SoftButton label="Laat zo" onPress={() => {}} />
+        {suggestion ? (
+          <GlassCard variant="warm" className="p-4 mb-5 flex-row items-start gap-3">
+            <Text style={{ fontSize: 22 }}>💡</Text>
+            <View className="flex-1">
+              <Text className="text-white text-sm font-semibold mb-2">{suggestion.text}</Text>
+              {(suggestion.primaryAction || suggestion.dismissAction) && (
+                <View className="flex-row gap-2">
+                  {suggestion.primaryAction && (
+                    <View className="bg-yellow rounded-xl px-3 py-2">
+                      <Text className="text-deep text-xs font-bold">
+                        {suggestion.primaryAction.label}
+                      </Text>
+                    </View>
+                  )}
+                  {suggestion.dismissAction && (
+                    <SoftButton label={suggestion.dismissAction.label} onPress={() => {}} />
+                  )}
+                </View>
+              )}
             </View>
-          </View>
-        </GlassCard>
+          </GlassCard>
+        ) : (
+          <GlassCard variant="warm" className="p-4 mb-5 flex-row items-start gap-3">
+            <Text style={{ fontSize: 22 }}>🔧</Text>
+            <View className="flex-1">
+              <Text className="text-white text-sm font-semibold mb-1">
+                Slimme planning-suggesties
+              </Text>
+              <Text className="text-white/65 text-xs leading-snug">
+                Onderdeel van een andere epic (AI-kalender). Verschijnt hier zodra het werk
+                van mijn teamgenoot klaar is.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         <Text className="text-center text-white/45 text-xs px-6">
           Je kunt alles aanpassen — niets is verplicht.
