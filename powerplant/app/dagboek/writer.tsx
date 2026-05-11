@@ -1,0 +1,88 @@
+// powerplant/app/dagboek/writer.tsx
+import { router } from "expo-router";
+import { useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { FakeStatusBar } from "../../components/FakeStatusBar";
+import { MoodPicker } from "../../components/MoodPicker";
+import { SoftButton } from "../../components/buttons";
+import { useJournalStore, Mood } from "../../stores/useJournalStore";
+
+const PROMPTS = [
+  "Iets kleins wat ik vandaag fijn vond was…",
+  "Waar ik mee zat vandaag is…",
+  "Morgen wil ik rustig…",
+];
+
+export default function Writer() {
+  const today = useJournalStore((s) =>
+    s.entries.find((e) => e.id === s.todayEntryId),
+  );
+  const upsert = useJournalStore((s) => s.upsertToday);
+
+  const [mood, setMood] = useState<Mood | null>(today?.mood ?? null);
+  const [text, setText] = useState(today?.text ?? "");
+
+  const save = () => {
+    if (!mood) return;
+    upsert({ date: "do 11 mei", mood, text });
+    router.back();
+  };
+
+  return (
+    <View className="flex-1">
+      <LinearGradient
+        colors={["#2D4356", "#122538"] as [string, string]}
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+      />
+      <FakeStatusBar />
+
+      <View className="px-6 pt-2 flex-row items-center justify-between mb-4">
+        <Pressable onPress={() => router.back()}>
+          <Text className="text-white/70 font-bold text-sm">Annuleer</Text>
+        </Pressable>
+        <Text className="text-white text-base font-semibold">Nieuwe entry</Text>
+        <Pressable onPress={save} disabled={!mood}>
+          <Text className={`font-bold text-sm ${mood ? "text-primary-soft" : "text-white/30"}`}>
+            Bewaren
+          </Text>
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerClassName="px-6 pb-12">
+        <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-3">
+          vandaag · do 11 mei
+        </Text>
+
+        <Text className="text-white text-sm font-bold mb-3">Hoe voel je je?</Text>
+        <MoodPicker value={mood} onChange={setMood} />
+
+        <Text className="text-white text-sm font-bold mt-6 mb-2">
+          Een paar woorden over vandaag
+        </Text>
+        <TextInput
+          multiline
+          value={text}
+          onChangeText={setText}
+          placeholder="Vandaag was…"
+          placeholderTextColor="rgba(255,255,255,0.35)"
+          className="bg-white/[0.07] border border-white/10 rounded-3xl p-4 text-white text-base"
+          style={{ minHeight: 180, textAlignVertical: "top" }}
+        />
+
+        <Text className="text-white/45 text-xs font-bold uppercase tracking-widest mt-5 mb-2">
+          Geen idee? Probeer…
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {PROMPTS.map((p) => (
+            <SoftButton
+              key={p}
+              label={p.length > 24 ? p.slice(0, 22) + "…" : p}
+              onPress={() => setText((t) => (t ? t + "\n" + p : p))}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
