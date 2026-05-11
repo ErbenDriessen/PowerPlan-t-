@@ -9,8 +9,9 @@ beforeEach(() =>
 );
 
 describe("useJournalStore", () => {
-  it("seeds three prototype entries", () => {
-    expect(useJournalStore.getState().entries).toHaveLength(3);
+  it("starts with no entries", () => {
+    expect(useJournalStore.getState().entries).toEqual([]);
+    expect(useJournalStore.getState().todayEntryId).toBeNull();
   });
 
   it("upsertToday creates a new entry on first save", () => {

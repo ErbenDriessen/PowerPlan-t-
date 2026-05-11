@@ -6,26 +6,7 @@ export type Mood = "moe" | "onrustig" | "rustig" | "blij" | "dankbaar";
 
 export type Entry = { id: string; date: string; mood: Mood; text: string };
 
-export const SEED_ENTRIES: Entry[] = [
-  {
-    id: "e1",
-    date: "wo 10 mei",
-    mood: "rustig",
-    text: "Vandaag rustig gestudeerd. Eén hoofdstuk uit het werkboek. Niet boos op mezelf om wat ik niet deed.",
-  },
-  {
-    id: "e2",
-    date: "di 9 mei",
-    mood: "moe",
-    text: "Lange schooldag. Vroeg naar bed gegaan en dat voelde goed. Even mijn telefoon weggelegd.",
-  },
-  {
-    id: "e3",
-    date: "ma 8 mei",
-    mood: "blij",
-    text: "Wandeling met Mila gemaakt. Veel gelachen. Daarna ademhalingsoefening.",
-  },
-];
+export const SEED_ENTRIES: Entry[] = [];
 
 type JournalState = {
   entries: Entry[];

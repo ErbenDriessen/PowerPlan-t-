@@ -22,9 +22,37 @@ type UserState = {
   addPoints: (delta: number, ringDelta: number) => void;
   finishOnboarding: () => void;
   setHasHydrated: (v: boolean) => void;
+  devReset: () => void;
 };
 
 const DEFAULT_GOALS = ["Minder stress", "Beter focussen", "Betere slaap"];
+
+// Point threshold (inclusive) at which each stage unlocks. Index = stage - 1.
+export const STAGE_THRESHOLDS = [0, 50, 100, 200, 350, 500, 750] as const;
+
+export const STAGE_LABELS = [
+  "Zaadje",
+  "Spruit",
+  "Jonge boom",
+  "Twijgen",
+  "Bladerdek",
+  "Brede kruin",
+  "Volgroeide boom",
+] as const;
+
+export function pointsToStage(points: number): number {
+  let stage = 1;
+  for (let i = 0; i < STAGE_THRESHOLDS.length; i++) {
+    if (points >= STAGE_THRESHOLDS[i]) stage = i + 1;
+  }
+  return stage;
+}
+
+export function pointsToNextThreshold(points: number): number | null {
+  const stage = pointsToStage(points);
+  if (stage >= STAGE_THRESHOLDS.length) return null;
+  return STAGE_THRESHOLDS[stage];
+}
 
 export const useUserStore = create<UserState>()(
   persist(
@@ -34,10 +62,10 @@ export const useUserStore = create<UserState>()(
       bedH: 23,
       bedM: 15,
       hasOnboarded: false,
-      points: 240,
-      ringProgress: 0.6,
-      treeStage: 3,
-      streak: 5,
+      points: 0,
+      ringProgress: 0,
+      treeStage: 1,
+      streak: 0,
       hasHydrated: false,
 
       setName: (n) => set({ name: n.trim() }),
@@ -48,10 +76,14 @@ export const useUserStore = create<UserState>()(
       bumpHour: (d) => set((s) => ({ bedH: (s.bedH + d + 24) % 24 })),
       bumpMin: (d) => set((s) => ({ bedM: (s.bedM + d + 60) % 60 })),
       addPoints: (delta, ringDelta) =>
-        set((s) => ({
-          points: Math.max(0, s.points + delta),
-          ringProgress: Math.max(0, Math.min(1, s.ringProgress + ringDelta)),
-        })),
+        set((s) => {
+          const newPoints = Math.max(0, s.points + delta);
+          return {
+            points: newPoints,
+            ringProgress: Math.max(0, Math.min(1, s.ringProgress + ringDelta)),
+            treeStage: pointsToStage(newPoints),
+          };
+        }),
       finishOnboarding: () => {
         const s = get();
         set({
@@ -61,6 +93,8 @@ export const useUserStore = create<UserState>()(
         });
       },
       setHasHydrated: (v) => set({ hasHydrated: v }),
+      devReset: () =>
+        set({ points: 0, ringProgress: 0, treeStage: 1, streak: 0 }),
     }),
     {
       name: "powerplant-user",

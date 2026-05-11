@@ -5,7 +5,11 @@ import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { usePrefsStore } from "../../stores/usePrefsStore";
-import { useUserStore } from "../../stores/useUserStore";
+import {
+  pointsToNextThreshold,
+  STAGE_LABELS,
+  useUserStore,
+} from "../../stores/useUserStore";
 
 const PREF_ROWS: { key: "sound" | "notifications" | "darkMode" | "bedtimeReminder"; emoji: string; label: string }[] = [
   { key: "sound", emoji: "🔊", label: "Geluid" },
@@ -17,7 +21,14 @@ const PREF_ROWS: { key: "sound" | "notifications" | "darkMode" | "bedtimeReminde
 export default function Settings() {
   const name = useUserStore((s) => s.name);
   const treeStage = useUserStore((s) => s.treeStage);
+  const points = useUserStore((s) => s.points);
+  const addPoints = useUserStore((s) => s.addPoints);
+  const devReset = useUserStore((s) => s.devReset);
   const prefs = usePrefsStore();
+
+  const stageLabel = STAGE_LABELS[treeStage - 1] ?? "Boom";
+  const nextThreshold = pointsToNextThreshold(points);
+  const pointsToNext = nextThreshold !== null ? nextThreshold - points : 0;
 
   return (
     <View className="flex-1">
@@ -34,7 +45,7 @@ export default function Settings() {
           <Mascot size={56} />
           <View className="flex-1">
             <Text className="text-white text-base font-extrabold">{name || "Jouw naam"}</Text>
-            <Text className="text-white/55 text-xs">Stadium {treeStage} · Jonge boom</Text>
+            <Text className="text-white/55 text-xs">Stadium {treeStage} · {stageLabel}</Text>
           </View>
           <Text className="text-white/45 text-lg">›</Text>
         </GlassCard>
@@ -106,6 +117,52 @@ export default function Settings() {
               </View>
             </View>
             <Text className="text-white/40">›</Text>
+          </View>
+        </GlassCard>
+
+        <Text className="text-white/55 text-xs font-bold uppercase tracking-widest px-1 mb-2">
+          🛠️ Dev · alleen voor testen
+        </Text>
+        <GlassCard className="mb-5 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            {points} punten · Stadium {treeStage}/7 · {stageLabel}
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            {nextThreshold !== null
+              ? `Nog ${pointsToNext} punten tot stadium ${treeStage + 1}`
+              : "Hoogste stadium bereikt 🌳"}
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <Pressable
+              onPress={() => addPoints(10, 0)}
+              className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">+10</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => addPoints(50, 0)}
+              className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">+50</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => addPoints(100, 0)}
+              className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">+100</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => addPoints(-50, 0)}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">-50</Text>
+            </Pressable>
+            <Pressable
+              onPress={devReset}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Reset</Text>
+            </Pressable>
           </View>
         </GlassCard>
 

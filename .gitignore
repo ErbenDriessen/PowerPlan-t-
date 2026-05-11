@@ -1,0 +1,6 @@
+# Claude Code local state (user-specific permissions, not for sharing)
+.claude/
+
+# OS metadata
+.DS_Store
+Thumbs.db

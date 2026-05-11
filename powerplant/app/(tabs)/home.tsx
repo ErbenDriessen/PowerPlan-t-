@@ -11,7 +11,7 @@ import { ProgressRing } from "../../components/ProgressRing";
 import { TaskRow } from "../../components/TaskRow";
 import { Tree } from "../../components/Tree";
 import { useTasksStore } from "../../stores/useTasksStore";
-import { useUserStore } from "../../stores/useUserStore";
+import { STAGE_LABELS, useUserStore } from "../../stores/useUserStore";
 
 export default function Home() {
   const name = useUserStore((s) => s.name);
@@ -59,7 +59,7 @@ export default function Home() {
         {/* Tree hero */}
         <GlassCard variant="strong" className="p-5 mb-5">
           <Text className="absolute top-4 left-5 text-xs font-bold text-white/70">
-            🌿 Jonge boom
+            🌿 {STAGE_LABELS[treeStage - 1] ?? "Boom"}
           </Text>
           <Text className="absolute top-4 right-5 text-xs font-bold text-yellow bg-yellow/10 border border-yellow/25 px-2.5 py-1 rounded-full">
             Stadium {treeStage} / 7
