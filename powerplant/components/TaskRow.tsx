@@ -11,7 +11,7 @@ import Animated, {
 type Props = {
   label: string;
   sub: string;
-  time: string;
+  time?: string;
   done: boolean;
   onToggle: () => void;
 };
@@ -56,7 +56,9 @@ export function TaskRow({ label, sub, time, done, onToggle }: Props) {
         <Text className="text-white font-semibold text-sm">{label}</Text>
         <Text className="text-white/55 text-xs">{sub}</Text>
       </View>
-      <Text className="text-white/65 font-bold text-xs tabular-nums">{time}</Text>
+      {time ? (
+        <Text className="text-white/65 font-bold text-xs tabular-nums">{time}</Text>
+      ) : null}
       <Animated.Text
         style={[
           {

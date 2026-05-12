@@ -11,7 +11,6 @@ import { ProgressRing } from "../../components/ProgressRing";
 import { TaskRow } from "../../components/TaskRow";
 import { Tree } from "../../components/Tree";
 import { formatDateNL, greetingForHour } from "../../lib/dates";
-import { useTasksStore } from "../../stores/useTasksStore";
 import { STAGE_LABELS, useUserStore } from "../../stores/useUserStore";
 
 export default function Home() {
@@ -23,12 +22,12 @@ export default function Home() {
   const bedM = useUserStore((s) => s.bedM);
   const addPoints = useUserStore((s) => s.addPoints);
 
-  const tasks = useTasksStore((s) => s.today);
-  const toggleTask = useTasksStore((s) => s.toggleTask);
+  const goals = useUserStore((s) => s.goals);
+  const toggleGoalDone = useUserStore((s) => s.toggleGoalDone);
 
   const onToggle = (id: string) => {
-    const wasDone = tasks.find((t) => t.id === id)?.done;
-    toggleTask(id);
+    const wasDone = goals.find((g) => g.id === id)?.done;
+    toggleGoalDone(id);
     addPoints(wasDone ? -10 : 10, wasDone ? -0.06 : 0.06);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
@@ -90,16 +89,21 @@ export default function Home() {
             <Text className="text-white font-extrabold">Vandaag</Text>
             <Text className="text-white/55 text-xs font-bold">{todayLabel}</Text>
           </View>
-          {tasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              label={t.label}
-              sub={t.sub}
-              time={t.time}
-              done={t.done}
-              onToggle={() => onToggle(t.id)}
-            />
-          ))}
+          {goals.length === 0 ? (
+            <Text className="text-white/55 text-sm py-2">
+              Nog geen doelen. Voeg er een toe via Planning of de "+ Doel toevoegen" knop hieronder.
+            </Text>
+          ) : (
+            goals.map((g) => (
+              <TaskRow
+                key={g.id}
+                label={g.title}
+                sub={g.description}
+                done={g.done}
+                onToggle={() => onToggle(g.id)}
+              />
+            ))
+          )}
         </GlassCard>
 
         {/* Bedtime */}
