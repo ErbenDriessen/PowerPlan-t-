@@ -24,8 +24,11 @@ export default function Settings() {
   const treeStage = useUserStore((s) => s.treeStage);
   const points = useUserStore((s) => s.points);
   const streak = useUserStore((s) => s.streak);
+  const goalCount = useUserStore((s) => s.goals.length);
+  const goalsDoneCount = useUserStore((s) => s.goals.filter((g) => g.done).length);
   const addPoints = useUserStore((s) => s.addPoints);
   const bumpStreak = useUserStore((s) => s.bumpStreak);
+  const resetGoalsDone = useUserStore((s) => s.resetGoalsDone);
   const userDevReset = useUserStore((s) => s.devReset);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
@@ -201,6 +204,23 @@ export default function Settings() {
               <Text className="text-white font-bold text-sm">Op 0</Text>
             </Pressable>
           </View>
+        </GlassCard>
+
+        {/* Doelen done-state */}
+        <GlassCard className="mb-3 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            Doelen vandaag: {goalsDoneCount}/{goalCount} afgevinkt
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            Bij een nieuwe dag worden vinkjes automatisch geleegd. Hier kun je dat handmatig
+            triggeren om de Vandaag-lijst opnieuw te testen.
+          </Text>
+          <Pressable
+            onPress={resetGoalsDone}
+            className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 self-start active:opacity-80"
+          >
+            <Text className="text-white font-bold text-sm">Vink doelen uit</Text>
+          </Pressable>
         </GlassCard>
 
         {/* Dagboek + reset alles */}

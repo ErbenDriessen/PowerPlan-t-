@@ -20,6 +20,7 @@ type UserState = {
   ringProgress: number;
   treeStage: number;
   streak: number;
+  lastSeenDate: string | null;
   hasHydrated: boolean;
 
   setName: (n: string) => void;
@@ -32,6 +33,8 @@ type UserState = {
   bumpMin: (d: number) => void;
   addPoints: (delta: number, ringDelta: number) => void;
   bumpStreak: (delta: number) => void;
+  rolloverIfNewDay: (today: string) => void;
+  resetGoalsDone: () => void;
   finishOnboarding: () => void;
   setHasHydrated: (v: boolean) => void;
   devReset: () => void;
@@ -86,6 +89,7 @@ export const useUserStore = create<UserState>()(
       ringProgress: 0,
       treeStage: 1,
       streak: 0,
+      lastSeenDate: null,
       hasHydrated: false,
 
       setName: (n) => set({ name: n.trim() }),
@@ -137,6 +141,20 @@ export const useUserStore = create<UserState>()(
         }),
       bumpStreak: (delta) =>
         set((s) => ({ streak: Math.max(0, s.streak + delta) })),
+      rolloverIfNewDay: (today) =>
+        set((s) => {
+          if (s.lastSeenDate === today) return s;
+          return {
+            lastSeenDate: today,
+            ringProgress: 0,
+            goals: s.goals.map((g) => (g.done ? { ...g, done: false } : g)),
+          };
+        }),
+      resetGoalsDone: () =>
+        set((s) => ({
+          ringProgress: 0,
+          goals: s.goals.map((g) => (g.done ? { ...g, done: false } : g)),
+        })),
       finishOnboarding: () => {
         const s = get();
         const goals: Goal[] = s.goals.length

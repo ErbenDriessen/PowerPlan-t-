@@ -25,6 +25,17 @@ export function formatDateNL(d: Date): string {
 }
 
 /**
+ * Stable per-day key like "2026-05-12" used to detect day rollovers.
+ * Uses the local date components, no timezone math.
+ */
+export function todayKey(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * ISO 8601 week number (1-53). Week 1 is the week containing the first Thursday
  * of the year, which matches what Dutch calendars use.
  */

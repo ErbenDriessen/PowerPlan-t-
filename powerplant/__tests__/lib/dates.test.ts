@@ -1,4 +1,4 @@
-import { formatDateNL, getISOWeek, greetingForHour } from "../../lib/dates";
+import { formatDateNL, getISOWeek, greetingForHour, todayKey } from "../../lib/dates";
 
 describe("formatDateNL", () => {
   it("formats a known Monday", () => {
@@ -30,6 +30,18 @@ describe("getISOWeek", () => {
   it("handles year-edge dates", () => {
     // 2024-12-30 (Mon) is ISO week 1 of 2025
     expect(getISOWeek(new Date(2024, 11, 30))).toBe(1);
+  });
+});
+
+describe("todayKey", () => {
+  it("formats as YYYY-MM-DD with zero-padding", () => {
+    expect(todayKey(new Date(2026, 0, 5))).toBe("2026-01-05");
+    expect(todayKey(new Date(2026, 4, 12))).toBe("2026-05-12");
+    expect(todayKey(new Date(2026, 11, 31))).toBe("2026-12-31");
+  });
+
+  it("returns different keys for adjacent days", () => {
+    expect(todayKey(new Date(2026, 4, 12))).not.toBe(todayKey(new Date(2026, 4, 13)));
   });
 });
 

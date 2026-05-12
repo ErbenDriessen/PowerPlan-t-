@@ -19,6 +19,7 @@ beforeEach(() => {
     ringProgress: 0,
     treeStage: 1,
     streak: 0,
+    lastSeenDate: null,
   });
 });
 
@@ -162,6 +163,61 @@ describe("useUserStore", () => {
   it("STAGE_THRESHOLDS has exactly 7 entries", () => {
     expect(STAGE_THRESHOLDS).toHaveLength(7);
     expect(STAGE_THRESHOLDS[0]).toBe(0);
+  });
+
+  it("rolloverIfNewDay resets done flags and ringProgress on a new date", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-11",
+      ringProgress: 0.7,
+      goals: [
+        { id: "g1", title: "A", description: "", done: true },
+        { id: "g2", title: "B", description: "", done: true },
+        { id: "g3", title: "C", description: "", done: false },
+      ],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    const s = useUserStore.getState();
+    expect(s.lastSeenDate).toBe("2026-05-12");
+    expect(s.ringProgress).toBe(0);
+    expect(s.goals.every((g) => !g.done)).toBe(true);
+  });
+
+  it("rolloverIfNewDay is a no-op when the date matches", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-12",
+      ringProgress: 0.4,
+      goals: [{ id: "g1", title: "A", description: "", done: true }],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    const s = useUserStore.getState();
+    expect(s.ringProgress).toBe(0.4);
+    expect(s.goals[0].done).toBe(true);
+  });
+
+  it("rolloverIfNewDay handles the first run (null lastSeenDate)", () => {
+    useUserStore.setState({
+      lastSeenDate: null,
+      ringProgress: 0,
+      goals: [{ id: "g1", title: "A", description: "", done: false }],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    expect(useUserStore.getState().lastSeenDate).toBe("2026-05-12");
+  });
+
+  it("resetGoalsDone clears all done flags and ringProgress without touching the date", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-12",
+      ringProgress: 0.5,
+      goals: [
+        { id: "g1", title: "A", description: "", done: true },
+        { id: "g2", title: "B", description: "", done: false },
+      ],
+    });
+    act(() => useUserStore.getState().resetGoalsDone());
+    const s = useUserStore.getState();
+    expect(s.ringProgress).toBe(0);
+    expect(s.goals.every((g) => !g.done)).toBe(true);
+    expect(s.lastSeenDate).toBe("2026-05-12");
   });
 
   it("bumpStreak adjusts streak and clamps at zero", () => {
