@@ -1,21 +1,12 @@
 // powerplant/app/dagboek/index.tsx
 import { router } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/buttons";
-import { formatDateNL } from "../../lib/dates";
 import { useJournalStore, Mood } from "../../stores/useJournalStore";
-
-const MOOD_LABEL: Record<Mood, string> = {
-  moe: "Moe 😴",
-  onrustig: "Onrustig 😣",
-  rustig: "Rustig 😌",
-  blij: "Blij 🙂",
-  dankbaar: "Dankbaar 🌿",
-};
 
 const MOOD_FACE: Record<Mood, string> = {
   moe: "😴",
@@ -27,11 +18,22 @@ const MOOD_FACE: Record<Mood, string> = {
 
 export default function DagboekIndex() {
   const entries = useJournalStore((s) => s.entries);
-  const todayId = useJournalStore((s) => s.todayEntryId);
-  const today = entries.find((e) => e.id === todayId);
-  const older = entries.filter((e) => e.id !== todayId);
+  const deleteEntry = useJournalStore((s) => s.deleteEntry);
 
-  const todayLabel = formatDateNL(new Date());
+  const confirmDelete = (id: string, date: string) => {
+    Alert.alert(
+      "Entry verwijderen?",
+      `De entry van ${date} wordt permanent gewist.`,
+      [
+        { text: "Annuleer", style: "cancel" },
+        {
+          text: "Verwijderen",
+          style: "destructive",
+          onPress: () => deleteEntry(id),
+        },
+      ],
+    );
+  };
 
   return (
     <View className="flex-1">
@@ -50,56 +52,60 @@ export default function DagboekIndex() {
 
       <ScrollView contentContainerClassName="px-5 pt-2 pb-32">
         <Text className="text-white/70 text-sm leading-snug px-1 mb-5">
-          Schrijf elke avond een paar woorden. Niemand leest mee — alleen jij.
+          Schrijf wanneer je wil een paar woorden. Niemand leest mee — alleen jij.
         </Text>
 
-        <GlassCard variant="warm" className="p-5 mb-5">
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-yellow text-xs font-bold uppercase tracking-widest">
-              Vandaag · {todayLabel}
-            </Text>
-            <Text className="text-white/55 text-[10px] font-bold">
-              {today ? MOOD_LABEL[today.mood] : "nog niet geschreven"}
-            </Text>
-          </View>
-          <Text className="text-white/85 text-sm leading-snug mb-4">
-            {today
-              ? `"${today.text.slice(0, 140)}${today.text.length > 140 ? "…" : ""}"`
-              : "Hoe voelde vandaag voor jou?"}
-          </Text>
-          <PrimaryButton
-            label={today ? "✏️ Aanpassen" : "✏️ Schrijf nu"}
-            onPress={() => router.push("/dagboek/writer" as any)}
-          />
-        </GlassCard>
+        <PrimaryButton
+          label="✏️ Nieuwe entry"
+          onPress={() => router.push("/dagboek/writer" as any)}
+          className="mb-6"
+        />
 
         <View className="flex-row items-center justify-between px-1 mb-2">
           <Text className="text-white/55 text-xs font-bold uppercase tracking-widest">
-            Eerder geschreven
+            Alle entries
           </Text>
           <Text className="text-white/40 text-xs font-bold">
-            {older.length} {older.length === 1 ? "entry" : "entries"}
+            {entries.length} {entries.length === 1 ? "entry" : "entries"}
           </Text>
         </View>
 
-        {older.length === 0 ? (
+        {entries.length === 0 ? (
           <GlassCard className="p-6 items-center">
             <Text style={{ fontSize: 30 }}>📓</Text>
             <Text className="text-white font-bold mt-2">Nog geen entries</Text>
-            <Text className="text-white/55 text-xs">Begin vanavond met één zin.</Text>
+            <Text className="text-white/55 text-xs mt-1 text-center">
+              Tap op "Nieuwe entry" om er eentje te schrijven.
+            </Text>
           </GlassCard>
         ) : (
           <View style={{ gap: 10 }}>
-            {older.map((e) => (
-              <GlassCard key={e.id} className="p-4">
-                <View className="flex-row justify-between mb-1">
-                  <Text className="text-white/55 text-xs font-bold">{e.date}</Text>
-                  <Text>{MOOD_FACE[e.mood]}</Text>
-                </View>
-                <Text className="text-white/80 text-sm" numberOfLines={3}>
-                  {e.text}
-                </Text>
-              </GlassCard>
+            {entries.map((e) => (
+              <Pressable
+                key={e.id}
+                onPress={() =>
+                  router.push({ pathname: "/dagboek/writer", params: { id: e.id } } as any)
+                }
+              >
+                <GlassCard className="p-4">
+                  <View className="flex-row items-center justify-between mb-1">
+                    <View className="flex-row items-center gap-2">
+                      <Text>{MOOD_FACE[e.mood]}</Text>
+                      <Text className="text-white/55 text-xs font-bold">{e.date}</Text>
+                    </View>
+                    <Pressable
+                      hitSlop={10}
+                      onPress={() => confirmDelete(e.id, e.date)}
+                      className="w-7 h-7 items-center justify-center rounded-full bg-white/[0.06]"
+                    >
+                      <Text className="text-white/55 text-base">×</Text>
+                    </Pressable>
+                  </View>
+                  <Text className="text-white/80 text-sm" numberOfLines={3}>
+                    {e.text || "(geen tekst)"}
+                  </Text>
+                </GlassCard>
+              </Pressable>
             ))}
           </View>
         )}

@@ -10,32 +10,48 @@ export const SEED_ENTRIES: Entry[] = [];
 
 type JournalState = {
   entries: Entry[];
-  todayEntryId: string | null;
-  upsertToday: (input: { date: string; mood: Mood; text: string }) => void;
+  addEntry: (input: { date: string; mood: Mood; text: string }) => string;
+  updateEntry: (
+    id: string,
+    input: Partial<{ date: string; mood: Mood; text: string }>,
+  ) => void;
+  deleteEntry: (id: string) => void;
   devReset: () => void;
 };
 
+function newEntryId(): string {
+  return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
 export const useJournalStore = create<JournalState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       entries: SEED_ENTRIES.map((e) => ({ ...e })),
-      todayEntryId: null,
-      upsertToday: ({ date, mood, text }) => {
-        const id = get().todayEntryId;
-        if (id) {
-          set((s) => ({
-            entries: s.entries.map((e) => (e.id === id ? { ...e, date, mood, text } : e)),
-          }));
-        } else {
-          const newId = "e" + Date.now();
-          set((s) => ({
-            entries: [{ id: newId, date, mood, text }, ...s.entries],
-            todayEntryId: newId,
-          }));
-        }
+      addEntry: ({ date, mood, text }) => {
+        const id = newEntryId();
+        set((s) => ({
+          entries: [{ id, date, mood, text }, ...s.entries],
+        }));
+        return id;
       },
-      devReset: () => set({ entries: [], todayEntryId: null }),
+      updateEntry: (id, input) =>
+        set((s) => ({
+          entries: s.entries.map((e) => (e.id === id ? { ...e, ...input } : e)),
+        })),
+      deleteEntry: (id) =>
+        set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
+      devReset: () => set({ entries: [] }),
     }),
-    { name: "powerplant-journal", storage: createJSONStorage(() => AsyncStorage) },
+    {
+      name: "powerplant-journal",
+      version: 2,
+      storage: createJSONStorage(() => AsyncStorage),
+      // v1 stored a todayEntryId field; ignore it on upgrade so the
+      // new "all entries are equal" model takes over cleanly.
+      migrate: (persisted: unknown) => {
+        const obj = (persisted ?? {}) as Record<string, unknown>;
+        return { entries: Array.isArray(obj.entries) ? obj.entries : [] };
+      },
+    },
   ),
 );

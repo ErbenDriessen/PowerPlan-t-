@@ -4,48 +4,98 @@ import { useJournalStore, SEED_ENTRIES, Mood } from "../../stores/useJournalStor
 beforeEach(() =>
   useJournalStore.setState({
     entries: SEED_ENTRIES.map((e) => ({ ...e })),
-    todayEntryId: null,
   }),
 );
 
 describe("useJournalStore", () => {
   it("starts with no entries", () => {
     expect(useJournalStore.getState().entries).toEqual([]);
-    expect(useJournalStore.getState().todayEntryId).toBeNull();
   });
 
-  it("upsertToday creates a new entry on first save", () => {
-    act(() =>
-      useJournalStore
+  it("addEntry inserts the new entry at the top and returns its id", () => {
+    let id = "";
+    act(() => {
+      id = useJournalStore
         .getState()
-        .upsertToday({ date: "do 11 mei", mood: "rustig" as Mood, text: "Hi" }),
-    );
+        .addEntry({ date: "ma 12 mei", mood: "rustig" as Mood, text: "Hi" });
+    });
     const s = useJournalStore.getState();
+    expect(s.entries).toHaveLength(1);
+    expect(s.entries[0].id).toBe(id);
     expect(s.entries[0].text).toBe("Hi");
     expect(s.entries[0].mood).toBe("rustig");
-    expect(s.todayEntryId).toBe(s.entries[0].id);
   });
 
-  it("upsertToday updates the same entry on subsequent saves", () => {
-    act(() =>
-      useJournalStore.getState().upsertToday({ date: "do 11 mei", mood: "rustig", text: "A" }),
-    );
-    const id = useJournalStore.getState().todayEntryId;
-    act(() =>
-      useJournalStore.getState().upsertToday({ date: "do 11 mei", mood: "blij", text: "B" }),
-    );
-    const s = useJournalStore.getState();
-    expect(s.todayEntryId).toBe(id);
-    expect(s.entries.find((e) => e.id === id)?.text).toBe("B");
+  it("addEntry adds in newest-first order", () => {
+    act(() => {
+      useJournalStore
+        .getState()
+        .addEntry({ date: "zo 11 mei", mood: "moe", text: "A" });
+    });
+    act(() => {
+      useJournalStore
+        .getState()
+        .addEntry({ date: "ma 12 mei", mood: "blij", text: "B" });
+    });
+    const e = useJournalStore.getState().entries;
+    expect(e.map((x) => x.text)).toEqual(["B", "A"]);
   });
 
-  it("devReset wipes entries and todayEntryId", () => {
-    act(() =>
-      useJournalStore.getState().upsertToday({ date: "do 11 mei", mood: "blij", text: "Hi" }),
-    );
+  it("updateEntry merges fields for the matching id", () => {
+    let id = "";
+    act(() => {
+      id = useJournalStore
+        .getState()
+        .addEntry({ date: "ma 12 mei", mood: "rustig", text: "A" });
+    });
+    act(() => {
+      useJournalStore.getState().updateEntry(id, { text: "B", mood: "blij" });
+    });
+    const e = useJournalStore.getState().entries[0];
+    expect(e.text).toBe("B");
+    expect(e.mood).toBe("blij");
+    expect(e.date).toBe("ma 12 mei"); // unchanged
+  });
+
+  it("updateEntry is a no-op for an unknown id", () => {
+    act(() => {
+      useJournalStore
+        .getState()
+        .addEntry({ date: "ma 12 mei", mood: "rustig", text: "A" });
+    });
+    act(() => {
+      useJournalStore.getState().updateEntry("nope", { text: "Z" });
+    });
+    expect(useJournalStore.getState().entries[0].text).toBe("A");
+  });
+
+  it("deleteEntry removes just the matching entry", () => {
+    let aId = "";
+    let bId = "";
+    act(() => {
+      aId = useJournalStore
+        .getState()
+        .addEntry({ date: "zo 11 mei", mood: "moe", text: "A" });
+    });
+    act(() => {
+      bId = useJournalStore
+        .getState()
+        .addEntry({ date: "ma 12 mei", mood: "blij", text: "B" });
+    });
+    act(() => useJournalStore.getState().deleteEntry(aId));
+    const e = useJournalStore.getState().entries;
+    expect(e).toHaveLength(1);
+    expect(e[0].id).toBe(bId);
+  });
+
+  it("devReset wipes all entries", () => {
+    act(() => {
+      useJournalStore
+        .getState()
+        .addEntry({ date: "ma 12 mei", mood: "blij", text: "Hi" });
+    });
     expect(useJournalStore.getState().entries.length).toBe(1);
     act(() => useJournalStore.getState().devReset());
     expect(useJournalStore.getState().entries).toEqual([]);
-    expect(useJournalStore.getState().todayEntryId).toBeNull();
   });
 });

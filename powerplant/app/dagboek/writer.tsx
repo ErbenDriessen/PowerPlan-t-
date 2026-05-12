@@ -1,7 +1,7 @@
 // powerplant/app/dagboek/writer.tsx
-import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { MoodPicker } from "../../components/MoodPicker";
@@ -16,20 +16,54 @@ const PROMPTS = [
 ];
 
 export default function Writer() {
-  const today = useJournalStore((s) =>
-    s.entries.find((e) => e.id === s.todayEntryId),
+  const params = useLocalSearchParams<{ id?: string }>();
+  const editingId = typeof params.id === "string" ? params.id : null;
+
+  const existing = useJournalStore((s) =>
+    editingId ? s.entries.find((e) => e.id === editingId) ?? null : null,
   );
-  const upsert = useJournalStore((s) => s.upsertToday);
+  const addEntry = useJournalStore((s) => s.addEntry);
+  const updateEntry = useJournalStore((s) => s.updateEntry);
+  const deleteEntry = useJournalStore((s) => s.deleteEntry);
 
-  const [mood, setMood] = useState<Mood | null>(today?.mood ?? null);
-  const [text, setText] = useState(today?.text ?? "");
+  // Capture today's label once on mount so editing an old entry doesn't
+  // suddenly mutate its date if the user changes nothing else.
+  const todayLabel = useMemo(() => formatDateNL(new Date()), []);
 
-  const todayLabel = formatDateNL(new Date());
+  const [mood, setMood] = useState<Mood | null>(existing?.mood ?? null);
+  const [text, setText] = useState(existing?.text ?? "");
+
+  const isEdit = editingId !== null;
+  const headerTitle = isEdit ? "Entry bewerken" : "Nieuwe entry";
+  const dateForEntry = existing?.date ?? todayLabel;
 
   const save = () => {
     if (!mood) return;
-    upsert({ date: todayLabel, mood, text });
+    if (isEdit && editingId) {
+      updateEntry(editingId, { mood, text });
+    } else {
+      addEntry({ date: todayLabel, mood, text });
+    }
     router.back();
+  };
+
+  const confirmDelete = () => {
+    if (!editingId) return;
+    Alert.alert(
+      "Entry verwijderen?",
+      "Deze entry wordt permanent gewist.",
+      [
+        { text: "Annuleer", style: "cancel" },
+        {
+          text: "Verwijderen",
+          style: "destructive",
+          onPress: () => {
+            deleteEntry(editingId);
+            router.back();
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -44,7 +78,7 @@ export default function Writer() {
         <Pressable onPress={() => router.back()}>
           <Text className="text-white/70 font-bold text-sm">Annuleer</Text>
         </Pressable>
-        <Text className="text-white text-base font-semibold">Nieuwe entry</Text>
+        <Text className="text-white text-base font-semibold">{headerTitle}</Text>
         <Pressable onPress={save} disabled={!mood}>
           <Text className={`font-bold text-sm ${mood ? "text-primary-soft" : "text-white/30"}`}>
             Bewaren
@@ -54,7 +88,7 @@ export default function Writer() {
 
       <ScrollView contentContainerClassName="px-6 pb-12">
         <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-3">
-          vandaag · {todayLabel}
+          {dateForEntry}
         </Text>
 
         <Text className="text-white text-sm font-bold mb-3">Hoe voel je je?</Text>
@@ -85,6 +119,16 @@ export default function Writer() {
             />
           ))}
         </View>
+
+        {isEdit && (
+          <View className="mt-8 items-center">
+            <Pressable onPress={confirmDelete} hitSlop={8}>
+              <Text className="text-white/55 text-sm font-bold underline">
+                Deze entry verwijderen
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
