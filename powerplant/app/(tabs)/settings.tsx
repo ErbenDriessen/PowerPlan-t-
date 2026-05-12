@@ -4,6 +4,7 @@ import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
+import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import { useJournalStore } from "../../stores/useJournalStore";
 import { usePrefsStore } from "../../stores/usePrefsStore";
 import {
@@ -33,6 +34,8 @@ export default function Settings() {
   const userDevReset = useUserStore((s) => s.devReset);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
+  const historyDevReset = useDailyProgressStore((s) => s.devReset);
+  const historyCount = useDailyProgressStore((s) => s.history.length);
   const prefs = usePrefsStore();
 
   const stageLabel = STAGE_LABELS[treeStage - 1] ?? "Boom";
@@ -42,6 +45,7 @@ export default function Settings() {
   const resetAll = () => {
     userDevReset();
     journalDevReset();
+    historyDevReset();
   };
 
   return (
@@ -232,13 +236,18 @@ export default function Settings() {
           </View>
         </GlassCard>
 
-        {/* Dagboek + reset alles */}
+        {/* Dagboek + dag-historie + reset alles */}
         <GlassCard className="mb-5 p-4">
           <Text className="text-white text-sm font-semibold mb-1">
             Dagboek: {journalEntryCount} {journalEntryCount === 1 ? "entry" : "entries"}
           </Text>
+          <Text className="text-white text-sm font-semibold mb-1">
+            Dag-historie (week grid op Mijn boom): {historyCount}{" "}
+            {historyCount === 1 ? "dag" : "dagen"} opgeslagen
+          </Text>
           <Text className="text-white/55 text-xs mb-3">
-            Oude seed-entries kunnen blijven hangen in opslag. Hieronder wis je ze.
+            Wis losse onderdelen of doe een complete reset (vinkjes, punten, streak, dagboek,
+            en dag-historie).
           </Text>
           <View className="flex-row flex-wrap gap-2">
             <Pressable
@@ -246,6 +255,12 @@ export default function Settings() {
               className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
             >
               <Text className="text-white font-bold text-sm">Wis dagboek</Text>
+            </Pressable>
+            <Pressable
+              onPress={historyDevReset}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Wis historie</Text>
             </Pressable>
             <Pressable
               onPress={resetAll}

@@ -1,29 +1,78 @@
 // powerplant/app/(tabs)/tree.tsx
+import { useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { Tree } from "../../components/Tree";
-import { getISOWeek } from "../../lib/dates";
+import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
+import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import { useUserStore } from "../../stores/useUserStore";
 
-const WEEK = [
-  { l: "m", state: "done" },
-  { l: "d", state: "done" },
-  { l: "w", state: "skip" },
-  { l: "d", state: "done" },
-  { l: "v", state: "today" },
-  { l: "z", state: "future" },
-  { l: "z", state: "future" },
-] as const;
+// Cumulative-points milestones, lowest unmet is shown as "Volgende beloning".
+type Reward = { points: number; label: string; emoji: string };
+const REWARDS: Reward[] = [
+  { points: 100, label: "Een vlinder voor je boom", emoji: "🦋" },
+  { points: 200, label: "Een bloemenkrans rond de boom", emoji: "🌸" },
+  { points: 350, label: "Een vogel op de boomtak", emoji: "🐦" },
+  { points: 500, label: "Een poel naast de boom", emoji: "💧" },
+  { points: 750, label: "Een hertje in de wei", emoji: "🦌" },
+  { points: 1000, label: "Een berglandschap op de achtergrond", emoji: "⛰️" },
+];
+
+const WEEKDAY_INITIALS = ["m", "d", "w", "d", "v", "z", "z"] as const;
+
+type CellState = "done" | "skip" | "today" | "future" | "today-done";
+
+function cellState(
+  date: string,
+  today: string,
+  goalsDoneToday: number,
+  record: { goalsDone: number; goalsTotal: number } | undefined,
+): CellState {
+  if (date > today) return "future";
+  if (date === today) return goalsDoneToday > 0 ? "today-done" : "today";
+  if (record && record.goalsDone >= 1) return "done";
+  return "skip";
+}
 
 export default function MijnBoom() {
   const points = useUserStore((s) => s.points);
   const treeStage = useUserStore((s) => s.treeStage);
   const streak = useUserStore((s) => s.streak);
+  const goals = useUserStore((s) => s.goals);
+  const history = useDailyProgressStore((s) => s.history);
 
+  const today = todayKey();
   const weekNumber = getISOWeek(new Date());
+
+  const goalsDoneToday = goals.filter((g) => g.done).length;
+
+  const week = useMemo(() => {
+    const days = weekDays(new Date());
+    return days.map((date, i) => {
+      const record = history.find((r) => r.date === date);
+      const state = cellState(date, today, goalsDoneToday, record);
+      return { date, state, letter: WEEKDAY_INITIALS[i] };
+    });
+  }, [history, today, goalsDoneToday]);
+
+  // "Days with progress this week" / "days elapsed in this week so far"
+  const elapsed = week.filter((d) => d.date <= today).length;
+  const completed = week.filter(
+    (d) => d.state === "done" || d.state === "today-done",
+  ).length;
+
+  // Volgende beloning: first reward whose threshold the user hasn't reached
+  const nextReward = REWARDS.find((r) => points < r.points);
+  const prevReward = nextReward
+    ? [...REWARDS].reverse().find((r) => r.points < nextReward.points && points >= r.points)
+    : undefined;
+  const rewardBase = prevReward?.points ?? 0;
+  const rewardProgress = nextReward
+    ? Math.max(0, Math.min(1, (points - rewardBase) / (nextReward.points - rewardBase)))
+    : 1;
 
   return (
     <View className="flex-1">
@@ -59,7 +108,9 @@ export default function MijnBoom() {
             <Text className="text-white/55 text-[10px] font-bold uppercase tracking-widest">
               Deze week
             </Text>
-            <Text className="text-white text-2xl font-extrabold tabular-nums">12/15</Text>
+            <Text className="text-white text-2xl font-extrabold tabular-nums">
+              {completed}/{elapsed}
+            </Text>
           </GlassCard>
         </View>
 
@@ -69,52 +120,89 @@ export default function MijnBoom() {
             <Text className="text-white/45 text-xs font-bold">week {weekNumber}</Text>
           </View>
           <View className="flex-row" style={{ gap: 6 }}>
-            {WEEK.map((d, i) => (
-              <View key={i} className="flex-1 items-center" style={{ gap: 6 }}>
-                <Text className={`text-[10px] font-bold ${d.state === "today" ? "text-white" : "text-white/45"}`}>
-                  {d.l}
-                </Text>
-                <View
-                  className={`w-9 h-9 rounded-2xl items-center justify-center ${
-                    d.state === "done"
-                      ? "bg-primary"
-                      : d.state === "today"
-                        ? "border-2 border-primary-soft bg-primary/15"
-                        : "bg-white/10"
-                  }`}
-                >
-                  <Text className={`text-sm font-bold ${d.state === "future" ? "text-white/30" : "text-white"}`}>
-                    {d.state === "done" ? "✓" : d.state === "future" ? "—" : "·"}
+            {week.map((d, i) => {
+              const isToday = d.state === "today" || d.state === "today-done";
+              const isDone = d.state === "done" || d.state === "today-done";
+              const isFuture = d.state === "future";
+              return (
+                <View key={d.date} className="flex-1 items-center" style={{ gap: 6 }}>
+                  <Text
+                    className={`text-[10px] font-bold ${
+                      isToday ? "text-white" : "text-white/45"
+                    }`}
+                  >
+                    {d.letter}
                   </Text>
+                  <View
+                    className={`w-9 h-9 rounded-2xl items-center justify-center ${
+                      isDone
+                        ? "bg-primary"
+                        : isToday
+                          ? "border-2 border-primary-soft bg-primary/15"
+                          : "bg-white/10"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm font-bold ${
+                        isFuture ? "text-white/30" : "text-white"
+                      }`}
+                    >
+                      {isDone ? "✓" : isFuture ? "—" : "·"}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </GlassCard>
 
-        <GlassCard variant="warm" className="p-4 mb-4">
-          <Text className="text-white text-sm font-semibold leading-snug">
-            Je hebt <Text className="text-yellow font-extrabold">4 van de 5</Text> dagen je
-            planning gevolgd. Dat is sterke groei. 🌱
-          </Text>
-        </GlassCard>
+        {elapsed > 0 && (
+          <GlassCard variant="warm" className="p-4 mb-4">
+            <Text className="text-white text-sm font-semibold leading-snug">
+              {completed === 0
+                ? "Nog geen dagen met voortgang deze week. Begin klein — vandaag is een goed moment."
+                : completed === elapsed
+                  ? `Mooi werk! Je hebt elke dag deze week iets gedaan (${completed} van ${elapsed}). 🌱`
+                  : (
+                    <>
+                      Je hebt{" "}
+                      <Text className="text-yellow font-extrabold">
+                        {completed} van de {elapsed}
+                      </Text>{" "}
+                      dagen iets afgevinkt. Dat is sterke groei. 🌱
+                    </>
+                  )}
+            </Text>
+          </GlassCard>
+        )}
 
         <GlassCard className="p-4 mb-4">
           <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-2">
             Volgende beloning
           </Text>
-          <View className="flex-row items-center gap-4">
-            <View className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/10 items-center justify-center">
-              <Text style={{ fontSize: 28 }}>🦋</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-white text-sm font-bold">Een vlinder voor je boom</Text>
-              <Text className="text-white/55 text-xs">Nog 60 punten te gaan</Text>
-              <View className="mt-2 h-1.5 w-full bg-white/10 rounded-full">
-                <View className="h-full bg-primary-soft rounded-full" style={{ width: "80%" }} />
+          {nextReward ? (
+            <View className="flex-row items-center gap-4">
+              <View className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/10 items-center justify-center">
+                <Text style={{ fontSize: 28 }}>{nextReward.emoji}</Text>
+              </View>
+              <View className="flex-1">
+                <Text className="text-white text-sm font-bold">{nextReward.label}</Text>
+                <Text className="text-white/55 text-xs">
+                  Nog {nextReward.points - points} punten te gaan
+                </Text>
+                <View className="mt-2 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                  <View
+                    className="h-full bg-primary-soft rounded-full"
+                    style={{ width: `${Math.round(rewardProgress * 100)}%` }}
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          ) : (
+            <Text className="text-white/80 text-sm">
+              Alle beloningen zijn vrijgespeeld 🌳 — jij bent al een hele boom op zich.
+            </Text>
+          )}
         </GlassCard>
       </ScrollView>
     </View>

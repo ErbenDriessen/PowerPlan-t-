@@ -1,5 +1,6 @@
 // powerplant/__tests__/stores/useUserStore.test.ts
 import { act } from "@testing-library/react-native";
+import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import {
   pointsToNextThreshold,
   pointsToStage,
@@ -21,6 +22,7 @@ beforeEach(() => {
     streak: 0,
     lastSeenDate: null,
   });
+  useDailyProgressStore.setState({ history: [] });
 });
 
 describe("useUserStore", () => {
@@ -233,6 +235,25 @@ describe("useUserStore", () => {
     });
     act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
     expect(useUserStore.getState().streak).toBe(0);
+  });
+
+  it("rolloverIfNewDay records yesterday's snapshot in the daily progress store", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-11",
+      goals: [
+        { id: "g1", title: "A", description: "", done: true },
+        { id: "g2", title: "B", description: "", done: true },
+        { id: "g3", title: "C", description: "", done: false },
+      ],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    const record = useDailyProgressStore.getState().getRecord("2026-05-11");
+    expect(record).toEqual({ date: "2026-05-11", goalsTotal: 3, goalsDone: 2 });
+  });
+
+  it("rolloverIfNewDay does not record on a first run (null lastSeenDate)", () => {
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    expect(useDailyProgressStore.getState().history).toEqual([]);
   });
 
   it("rolloverIfNewDay breaks the streak when a day was skipped", () => {

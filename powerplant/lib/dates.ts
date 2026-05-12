@@ -47,6 +47,22 @@ export function daysBetween(a: string, b: string): number {
 }
 
 /**
+ * The seven `todayKey`-style dates for the Mon-Sun week containing `today`.
+ * Always starts on Monday regardless of what day `today` falls on.
+ */
+export function weekDays(today: Date = new Date()): string[] {
+  const dow = today.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+  const mondayOffset = (dow + 6) % 7; // 0 when Mon, 6 when Sun
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - mondayOffset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return todayKey(d);
+  });
+}
+
+/**
  * ISO 8601 week number (1-53). Week 1 is the week containing the first Thursday
  * of the year, which matches what Dutch calendars use.
  */

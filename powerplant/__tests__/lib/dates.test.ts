@@ -1,4 +1,11 @@
-import { daysBetween, formatDateNL, getISOWeek, greetingForHour, todayKey } from "../../lib/dates";
+import {
+  daysBetween,
+  formatDateNL,
+  getISOWeek,
+  greetingForHour,
+  todayKey,
+  weekDays,
+} from "../../lib/dates";
 
 describe("formatDateNL", () => {
   it("formats a known Monday", () => {
@@ -64,6 +71,36 @@ describe("daysBetween", () => {
 
   it("handles a year boundary", () => {
     expect(daysBetween("2025-12-31", "2026-01-01")).toBe(1);
+  });
+});
+
+describe("weekDays", () => {
+  it("returns Mon-Sun starting on Monday when today is Wednesday", () => {
+    // 2026-05-13 is a Wednesday
+    const days = weekDays(new Date(2026, 4, 13));
+    expect(days).toEqual([
+      "2026-05-11", // Mon
+      "2026-05-12", // Tue
+      "2026-05-13", // Wed (today)
+      "2026-05-14", // Thu
+      "2026-05-15", // Fri
+      "2026-05-16", // Sat
+      "2026-05-17", // Sun
+    ]);
+  });
+
+  it("treats Sunday as the last day, not the first", () => {
+    // 2026-05-17 is a Sunday
+    const days = weekDays(new Date(2026, 4, 17));
+    expect(days[0]).toBe("2026-05-11");
+    expect(days[6]).toBe("2026-05-17");
+  });
+
+  it("crosses month boundaries cleanly", () => {
+    // 2026-06-02 is a Tuesday — the Monday of that week is in May
+    const days = weekDays(new Date(2026, 5, 2));
+    expect(days[0]).toBe("2026-06-01");
+    expect(days[6]).toBe("2026-06-07");
   });
 });
 
