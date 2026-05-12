@@ -10,14 +10,53 @@ import { PrimaryButton } from "../components/buttons";
 import { GlassCard } from "../components/GlassCard";
 import { useUserStore } from "../stores/useUserStore";
 
-const GOAL_OPTIONS = [
-  "Meer bewegen",
-  "Betere slaap",
-  "Minder stress",
-  "Schooldoelen",
-  "Meer rust nemen",
-  "Beter focussen",
+// Each chip turns into an actual goal when picked. The description is a
+// suggested daily action so the goal feels concrete from the first day;
+// the user can edit or replace it later from the Planning screen.
+const GOAL_OPTIONS: { title: string; description: string }[] = [
+  { title: "Meer bewegen", description: "Korte wandeling van 15 min" },
+  { title: "Betere slaap", description: "Telefoon weg om 22:00" },
+  { title: "Minder stress", description: "Ademhalingsoefening of korte pauze" },
+  { title: "Schooldoelen", description: "Eén studeerblok of leesmoment" },
+  { title: "Meer rust nemen", description: "5–10 min meditatie of stil zitten" },
+  { title: "Beter focussen", description: "Eén focusblok zonder afleiding" },
 ];
+
+function TimeColumn({
+  value,
+  onUp,
+  onDown,
+  accessibilityLabel,
+}: {
+  value: number;
+  onUp: () => void;
+  onDown: () => void;
+  accessibilityLabel: string;
+}) {
+  return (
+    <View className="items-center" style={{ gap: 8 }}>
+      <Pressable
+        onPress={onUp}
+        hitSlop={16}
+        accessibilityLabel={`${accessibilityLabel} omhoog`}
+        className="w-16 h-12 items-center justify-center bg-white/[0.08] border border-white/15 rounded-2xl active:opacity-60"
+      >
+        <Text className="text-white text-lg font-bold">▴</Text>
+      </Pressable>
+      <Text className="text-white text-5xl font-extrabold tabular-nums">
+        {String(value).padStart(2, "0")}
+      </Text>
+      <Pressable
+        onPress={onDown}
+        hitSlop={16}
+        accessibilityLabel={`${accessibilityLabel} omlaag`}
+        className="w-16 h-12 items-center justify-center bg-white/[0.08] border border-white/15 rounded-2xl active:opacity-60"
+      >
+        <Text className="text-white text-lg font-bold">▾</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function Onboarding() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -99,15 +138,16 @@ export default function Onboarding() {
               Waar wil jij aan werken?
             </Text>
             <Text className="text-white/65 mt-1 mb-6">
-              Kies wat bij je past. Je kunt het later aanpassen.
+              Kies wat bij je past. Elke keuze wordt een doel met een kleine suggestie —
+              je kunt alles later aanpassen.
             </Text>
             <View className="flex-row flex-wrap gap-2.5">
               {GOAL_OPTIONS.map((g) => (
                 <Chip
-                  key={g}
-                  label={g}
-                  selected={goals.some((x) => x.title === g)}
-                  onPress={() => toggleGoal(g)}
+                  key={g.title}
+                  label={g.title}
+                  selected={goals.some((x) => x.title === g.title)}
+                  onPress={() => toggleGoal(g.title, g.description)}
                 />
               ))}
             </View>
@@ -123,30 +163,20 @@ export default function Onboarding() {
             <Text className="text-white/65 mt-1 mb-6">
               We gebruiken dit alleen om je rustig richting bedtijd te begeleiden.
             </Text>
-            <GlassCard className="p-6 flex-row items-center justify-center gap-3">
-              <View className="items-center">
-                <Pressable onPress={() => bumpHour(1)}>
-                  <Text className="text-white/50 text-xl">▴</Text>
-                </Pressable>
-                <Text className="text-white text-5xl font-extrabold tabular-nums">
-                  {String(bedH).padStart(2, "0")}
-                </Text>
-                <Pressable onPress={() => bumpHour(-1)}>
-                  <Text className="text-white/50 text-xl">▾</Text>
-                </Pressable>
-              </View>
-              <Text className="text-white text-5xl font-extrabold -mt-2">:</Text>
-              <View className="items-center">
-                <Pressable onPress={() => bumpMin(15)}>
-                  <Text className="text-white/50 text-xl">▴</Text>
-                </Pressable>
-                <Text className="text-white text-5xl font-extrabold tabular-nums">
-                  {String(bedM).padStart(2, "0")}
-                </Text>
-                <Pressable onPress={() => bumpMin(-15)}>
-                  <Text className="text-white/50 text-xl">▾</Text>
-                </Pressable>
-              </View>
+            <GlassCard className="p-6 flex-row items-center justify-center gap-4">
+              <TimeColumn
+                value={bedH}
+                onUp={() => bumpHour(1)}
+                onDown={() => bumpHour(-1)}
+                accessibilityLabel="Uur"
+              />
+              <Text className="text-white text-5xl font-extrabold">:</Text>
+              <TimeColumn
+                value={bedM}
+                onUp={() => bumpMin(15)}
+                onDown={() => bumpMin(-15)}
+                accessibilityLabel="Minuut"
+              />
             </GlassCard>
             <Text className="text-white/55 text-center mt-3">🌙 Bedtijd</Text>
           </View>

@@ -54,6 +54,17 @@ describe("useUserStore", () => {
     expect(useUserStore.getState().goals).toEqual([]);
   });
 
+  it("toggleGoal can stash a description alongside the title", () => {
+    act(() =>
+      useUserStore
+        .getState()
+        .toggleGoal("Meer bewegen", "15 min wandelen na de lunch"),
+    );
+    const g = useUserStore.getState().goals[0];
+    expect(g.title).toBe("Meer bewegen");
+    expect(g.description).toBe("15 min wandelen na de lunch");
+  });
+
   it("addGoal stores title + description, trims, skips empty + duplicates", () => {
     act(() =>
       useUserStore

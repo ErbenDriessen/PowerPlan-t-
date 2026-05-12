@@ -25,7 +25,7 @@ type UserState = {
   hasHydrated: boolean;
 
   setName: (n: string) => void;
-  toggleGoal: (title: string) => void;
+  toggleGoal: (title: string, description?: string) => void;
   addGoal: (input: { title: string; description?: string }) => void;
   updateGoal: (id: string, input: { title?: string; description?: string }) => void;
   removeGoal: (id: string) => void;
@@ -95,7 +95,7 @@ export const useUserStore = create<UserState>()(
       hasHydrated: false,
 
       setName: (n) => set({ name: n.trim() }),
-      toggleGoal: (title) => {
+      toggleGoal: (title, description) => {
         const trimmed = title.trim();
         if (!trimmed) return;
         set((s) => {
@@ -103,7 +103,7 @@ export const useUserStore = create<UserState>()(
           if (existing) {
             return { goals: s.goals.filter((g) => g.id !== existing.id) };
           }
-          return { goals: [...s.goals, makeGoal(trimmed)] };
+          return { goals: [...s.goals, makeGoal(trimmed, description ?? "")] };
         });
       },
       addGoal: ({ title, description = "" }) => {
@@ -209,7 +209,18 @@ export const useUserStore = create<UserState>()(
         }
         return obj;
       },
-      onRehydrateStorage: () => (state) => state?.setHasHydrated(true),
+      // hasHydrated is a runtime flag — never write it to AsyncStorage,
+      // otherwise a stale `true` could be read back before this session's
+      // rehydration actually completes.
+      partialize: (state) => {
+        const { hasHydrated, ...rest } = state;
+        return rest;
+      },
+      onRehydrateStorage: () => () => {
+        // Always flip the flag from inside getState() so we don't depend
+        // on the rehydration callback's `state` argument being defined.
+        useUserStore.getState().setHasHydrated(true);
+      },
     },
   ),
 );
