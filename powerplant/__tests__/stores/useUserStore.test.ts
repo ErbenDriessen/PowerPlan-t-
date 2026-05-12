@@ -169,6 +169,7 @@ describe("useUserStore", () => {
     useUserStore.setState({
       lastSeenDate: "2026-05-11",
       ringProgress: 0.7,
+      streak: 2,
       goals: [
         { id: "g1", title: "A", description: "", done: true },
         { id: "g2", title: "B", description: "", done: true },
@@ -180,28 +181,81 @@ describe("useUserStore", () => {
     expect(s.lastSeenDate).toBe("2026-05-12");
     expect(s.ringProgress).toBe(0);
     expect(s.goals.every((g) => !g.done)).toBe(true);
+    expect(s.streak).toBe(3); // gap === 1 and yesterday had done goals
   });
 
   it("rolloverIfNewDay is a no-op when the date matches", () => {
     useUserStore.setState({
       lastSeenDate: "2026-05-12",
       ringProgress: 0.4,
+      streak: 5,
       goals: [{ id: "g1", title: "A", description: "", done: true }],
     });
     act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
     const s = useUserStore.getState();
     expect(s.ringProgress).toBe(0.4);
     expect(s.goals[0].done).toBe(true);
+    expect(s.streak).toBe(5);
   });
 
-  it("rolloverIfNewDay handles the first run (null lastSeenDate)", () => {
+  it("rolloverIfNewDay handles the first run (null lastSeenDate) without touching streak", () => {
     useUserStore.setState({
       lastSeenDate: null,
       ringProgress: 0,
+      streak: 0,
       goals: [{ id: "g1", title: "A", description: "", done: false }],
     });
     act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
-    expect(useUserStore.getState().lastSeenDate).toBe("2026-05-12");
+    const s = useUserStore.getState();
+    expect(s.lastSeenDate).toBe("2026-05-12");
+    expect(s.streak).toBe(0);
+  });
+
+  it("rolloverIfNewDay breaks the streak when yesterday had no done goals", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-11",
+      streak: 4,
+      goals: [
+        { id: "g1", title: "A", description: "", done: false },
+        { id: "g2", title: "B", description: "", done: false },
+      ],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    expect(useUserStore.getState().streak).toBe(0);
+  });
+
+  it("rolloverIfNewDay breaks the streak when a day was skipped", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-10",
+      streak: 7,
+      goals: [{ id: "g1", title: "A", description: "", done: true }],
+    });
+    act(() => useUserStore.getState().rolloverIfNewDay("2026-05-12"));
+    expect(useUserStore.getState().streak).toBe(0);
+  });
+
+  it("simulateNextDay applies the same streak math without changing lastSeenDate", () => {
+    useUserStore.setState({
+      lastSeenDate: "2026-05-12",
+      ringProgress: 0.4,
+      streak: 1,
+      goals: [{ id: "g1", title: "A", description: "", done: true }],
+    });
+    act(() => useUserStore.getState().simulateNextDay());
+    const s = useUserStore.getState();
+    expect(s.streak).toBe(2);
+    expect(s.ringProgress).toBe(0);
+    expect(s.goals[0].done).toBe(false);
+    expect(s.lastSeenDate).toBe("2026-05-12"); // intentionally unchanged
+  });
+
+  it("simulateNextDay resets streak to 0 when nothing was done", () => {
+    useUserStore.setState({
+      streak: 3,
+      goals: [{ id: "g1", title: "A", description: "", done: false }],
+    });
+    act(() => useUserStore.getState().simulateNextDay());
+    expect(useUserStore.getState().streak).toBe(0);
   });
 
   it("resetGoalsDone clears all done flags and ringProgress without touching the date", () => {

@@ -29,6 +29,7 @@ export default function Settings() {
   const addPoints = useUserStore((s) => s.addPoints);
   const bumpStreak = useUserStore((s) => s.bumpStreak);
   const resetGoalsDone = useUserStore((s) => s.resetGoalsDone);
+  const simulateNextDay = useUserStore((s) => s.simulateNextDay);
   const userDevReset = useUserStore((s) => s.devReset);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
@@ -206,21 +207,29 @@ export default function Settings() {
           </View>
         </GlassCard>
 
-        {/* Doelen done-state */}
+        {/* Doelen done-state + dag-overgang */}
         <GlassCard className="mb-3 p-4">
           <Text className="text-white text-sm font-semibold mb-1">
             Doelen vandaag: {goalsDoneCount}/{goalCount} afgevinkt
           </Text>
           <Text className="text-white/55 text-xs mb-3">
-            Bij een nieuwe dag worden vinkjes automatisch geleegd. Hier kun je dat handmatig
-            triggeren om de Vandaag-lijst opnieuw te testen.
+            "Vink uit" reset alleen de vinkjes. "Simuleer morgen" doet hetzelfde plus de
+            streak-logica: +1 dag als minstens 1 doel af was, anders terug naar 0.
           </Text>
-          <Pressable
-            onPress={resetGoalsDone}
-            className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 self-start active:opacity-80"
-          >
-            <Text className="text-white font-bold text-sm">Vink doelen uit</Text>
-          </Pressable>
+          <View className="flex-row flex-wrap gap-2">
+            <Pressable
+              onPress={resetGoalsDone}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Vink doelen uit</Text>
+            </Pressable>
+            <Pressable
+              onPress={simulateNextDay}
+              className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Simuleer morgen</Text>
+            </Pressable>
+          </View>
         </GlassCard>
 
         {/* Dagboek + reset alles */}

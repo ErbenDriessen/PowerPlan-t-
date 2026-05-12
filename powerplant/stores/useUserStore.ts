@@ -2,6 +2,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { daysBetween } from "../lib/dates";
 
 export type Goal = {
   id: string;
@@ -35,6 +36,7 @@ type UserState = {
   bumpStreak: (delta: number) => void;
   rolloverIfNewDay: (today: string) => void;
   resetGoalsDone: () => void;
+  simulateNextDay: () => void;
   finishOnboarding: () => void;
   setHasHydrated: (v: boolean) => void;
   devReset: () => void;
@@ -144,9 +146,20 @@ export const useUserStore = create<UserState>()(
       rolloverIfNewDay: (today) =>
         set((s) => {
           if (s.lastSeenDate === today) return s;
+          // Update streak based on what was done on the previous day.
+          // First run (null lastSeenDate): leave streak untouched.
+          // Gap of exactly 1 day AND at least one goal was done → +1.
+          // Any other gap, or zero goals done → break the streak.
+          let newStreak = s.streak;
+          if (s.lastSeenDate !== null) {
+            const gap = daysBetween(s.lastSeenDate, today);
+            const yesterdayQualifies = s.goals.some((g) => g.done);
+            newStreak = gap === 1 && yesterdayQualifies ? s.streak + 1 : 0;
+          }
           return {
             lastSeenDate: today,
             ringProgress: 0,
+            streak: newStreak,
             goals: s.goals.map((g) => (g.done ? { ...g, done: false } : g)),
           };
         }),
@@ -155,6 +168,19 @@ export const useUserStore = create<UserState>()(
           ringProgress: 0,
           goals: s.goals.map((g) => (g.done ? { ...g, done: false } : g)),
         })),
+      simulateNextDay: () =>
+        set((s) => {
+          // Dev-only: run the same streak math the real rollover does,
+          // pretending we just crossed midnight. lastSeenDate is left
+          // alone so the real rollover still fires correctly tomorrow.
+          const yesterdayQualifies = s.goals.some((g) => g.done);
+          const newStreak = yesterdayQualifies ? s.streak + 1 : 0;
+          return {
+            ringProgress: 0,
+            streak: newStreak,
+            goals: s.goals.map((g) => (g.done ? { ...g, done: false } : g)),
+          };
+        }),
       finishOnboarding: () => {
         const s = get();
         const goals: Goal[] = s.goals.length

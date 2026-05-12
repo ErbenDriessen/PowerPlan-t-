@@ -1,4 +1,4 @@
-import { formatDateNL, getISOWeek, greetingForHour, todayKey } from "../../lib/dates";
+import { daysBetween, formatDateNL, getISOWeek, greetingForHour, todayKey } from "../../lib/dates";
 
 describe("formatDateNL", () => {
   it("formats a known Monday", () => {
@@ -42,6 +42,28 @@ describe("todayKey", () => {
 
   it("returns different keys for adjacent days", () => {
     expect(todayKey(new Date(2026, 4, 12))).not.toBe(todayKey(new Date(2026, 4, 13)));
+  });
+});
+
+describe("daysBetween", () => {
+  it("returns 1 for consecutive days", () => {
+    expect(daysBetween("2026-05-11", "2026-05-12")).toBe(1);
+  });
+
+  it("returns 0 for the same day", () => {
+    expect(daysBetween("2026-05-12", "2026-05-12")).toBe(0);
+  });
+
+  it("returns negative for going back in time", () => {
+    expect(daysBetween("2026-05-12", "2026-05-11")).toBe(-1);
+  });
+
+  it("handles a multi-day gap including a month boundary", () => {
+    expect(daysBetween("2026-04-30", "2026-05-03")).toBe(3);
+  });
+
+  it("handles a year boundary", () => {
+    expect(daysBetween("2025-12-31", "2026-01-01")).toBe(1);
   });
 });
 

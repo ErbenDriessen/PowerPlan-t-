@@ -36,6 +36,17 @@ export function todayKey(d: Date = new Date()): string {
 }
 
 /**
+ * Whole-day difference between two `todayKey`-style strings (`b - a`).
+ * Returns positive when `b` is later than `a`, zero on the same day,
+ * negative when `b` is earlier. Useful for streak math.
+ */
+export function daysBetween(a: string, b: string): number {
+  const da = new Date(a + "T00:00:00").getTime();
+  const db = new Date(b + "T00:00:00").getTime();
+  return Math.round((db - da) / (1000 * 60 * 60 * 24));
+}
+
+/**
  * ISO 8601 week number (1-53). Week 1 is the week containing the first Thursday
  * of the year, which matches what Dutch calendars use.
  */
