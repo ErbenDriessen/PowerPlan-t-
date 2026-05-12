@@ -41,17 +41,30 @@ export default function Onboarding() {
       <DuskBackground variant="warm" />
       <FakeStatusBar />
 
-      {/* Progress dots */}
+      {/* Progress dots with back / skip */}
       <View className="px-6 pt-2 flex-row items-center justify-between">
-        <View className="flex-row gap-1.5">
-          {[1, 2, 3].map((i) => (
-            <View
-              key={i}
-              className={`h-1.5 w-8 rounded-full ${
-                i <= step ? "bg-primary-soft" : "bg-white/15"
-              }`}
-            />
-          ))}
+        <View className="flex-row items-center gap-3">
+          {step > 1 ? (
+            <Pressable
+              onPress={() => setStep(((step - 1) as 1 | 2 | 3))}
+              hitSlop={8}
+              accessibilityLabel="Vorige stap"
+            >
+              <Text className="text-white/55 text-lg font-bold">←</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 14 }} />
+          )}
+          <View className="flex-row gap-1.5">
+            {[1, 2, 3].map((i) => (
+              <View
+                key={i}
+                className={`h-1.5 w-8 rounded-full ${
+                  i <= step ? "bg-primary-soft" : "bg-white/15"
+                }`}
+              />
+            ))}
+          </View>
         </View>
         {step < 3 && (
           <Pressable onPress={done}>
