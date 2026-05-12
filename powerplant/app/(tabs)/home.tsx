@@ -1,7 +1,7 @@
 // powerplant/app/(tabs)/home.tsx
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GhostButton, PrimaryButton } from "../../components/buttons";
@@ -33,6 +33,11 @@ export default function Home() {
   };
 
   const bed = `${String(bedH).padStart(2, "0")}:${String(bedM).padStart(2, "0")}`;
+  // Wind-down starts 45 min before bedtime; wrap minutes/hours cleanly.
+  const windDownTotal = (bedH * 60 + bedM - 45 + 24 * 60) % (24 * 60);
+  const windDownH = Math.floor(windDownTotal / 60);
+  const windDownM = windDownTotal % 60;
+  const windDown = `${String(windDownH).padStart(2, "0")}:${String(windDownM).padStart(2, "0")}`;
   const today = new Date();
   const greeting = greetingForHour(today.getHours());
   const todayLabel = formatDateNL(today);
@@ -49,7 +54,13 @@ export default function Home() {
           </Text>
           <Text className="text-white text-2xl font-extrabold">Hoi, {name || "Vriend"}</Text>
         </View>
-        <Mascot size={42} breathing="off" />
+        <Pressable
+          onPress={() => router.push("/(tabs)/settings")}
+          hitSlop={8}
+          accessibilityLabel="Open instellingen"
+        >
+          <Mascot size={42} breathing="off" />
+        </Pressable>
       </View>
       <Text className="text-white/65 px-6 mt-1">
         Vandaag werk je rustig aan jouw doelen.
@@ -113,7 +124,7 @@ export default function Home() {
           </View>
           <View className="flex-1">
             <Text className="text-white text-sm font-bold">Bedtijd vanavond</Text>
-            <Text className="text-white/65 text-xs">We dimmen alles vanaf 22:30</Text>
+            <Text className="text-white/65 text-xs">We dimmen alles vanaf {windDown}</Text>
           </View>
           <Text className="text-yellow text-lg font-extrabold tabular-nums">{bed}</Text>
         </GlassCard>
