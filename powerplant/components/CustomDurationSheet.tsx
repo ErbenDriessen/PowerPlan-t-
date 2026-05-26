@@ -1,7 +1,12 @@
 // powerplant/components/CustomDurationSheet.tsx
 import * as Haptics from "expo-haptics";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import Animated, {
   Easing,
   runOnJS,
@@ -12,6 +17,8 @@ import Animated, {
 import { GhostButton, PrimaryButton } from "./buttons";
 
 const SHEET_OFFSCREEN = 700;
+const SWIPE_DISMISS_PX = 90;
+const SWIPE_DISMISS_VELOCITY = 700;
 
 function StepperCard({
   label,
@@ -95,11 +102,21 @@ export function CustomDurationSheet({
   const translateY = useSharedValue(SHEET_OFFSCREEN);
   const backdrop = useSharedValue(0);
 
+  // Latest initial values via ref so the open-effect only fires on `visible`
+  // change — prevents re-opens from getting stuck on stale animation state.
+  const initialDurRef = useRef(initialDur);
+  const initialBrkRef = useRef(initialBrk);
+  initialDurRef.current = initialDur;
+  initialBrkRef.current = initialBrk;
+
   useEffect(() => {
     if (visible) {
+      // Force a clean starting position even if the previous close was
+      // cancelled mid-flight; otherwise the open animation can be a no-op.
+      translateY.value = SHEET_OFFSCREEN;
       setMounted(true);
-      setDur(initialDur);
-      setBrk(initialBrk);
+      setDur(initialDurRef.current);
+      setBrk(initialBrkRef.current);
       translateY.value = withTiming(0, {
         duration: 340,
         easing: Easing.out(Easing.cubic),
@@ -110,11 +127,11 @@ export function CustomDurationSheet({
         duration: 280,
         easing: Easing.in(Easing.cubic),
       });
-      backdrop.value = withTiming(0, { duration: 240 }, (done) => {
+      backdrop.value = withTiming(0, { duration: 280 }, (done) => {
         if (done) runOnJS(setMounted)(false);
       });
     }
-  }, [visible, initialDur, initialBrk, translateY, backdrop]);
+  }, [visible, translateY, backdrop]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -128,27 +145,47 @@ export function CustomDurationSheet({
     onConfirm(dur, brk);
   };
 
+  // Swipe-down on the drag handle dismisses the sheet.
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > SWIPE_DISMISS_PX || e.velocityY > SWIPE_DISMISS_VELOCITY) {
+        runOnJS(onCancel)();
+      } else {
+        translateY.value = withTiming(0, { duration: 200 });
+      }
+    });
+
   const ratioHint = `1 ronde duurt ${dur + brk} min in totaal`;
 
   if (!mounted) return null;
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onCancel} statusBarTranslucent>
-      <View style={{ flex: 1 }}>
+      {/* GestureHandlerRootView is needed inside Modal — the modal renders
+          in a separate native window that doesn't inherit the app-root one. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, backdropStyle]}>
           <Pressable style={{ flex: 1 }} onPress={onCancel} accessibilityLabel="Sluit instellen" />
         </Animated.View>
 
         <Animated.View style={[styles.sheetWrap, sheetStyle]}>
           <View style={styles.sheet}>
-            <View style={styles.grabber} />
-
-            <Text className="text-white text-2xl font-extrabold text-center mt-1">
-              Eigen ritme
-            </Text>
-            <Text className="text-white/55 text-sm text-center mt-1 mb-5">
-              Hoe lang werk je en hoe lang pauzeer je per ronde?
-            </Text>
+            <GestureDetector gesture={panGesture}>
+              <View style={styles.dragHandleZone}>
+                <View style={styles.grabber} />
+                <Text className="text-white text-2xl font-extrabold text-center mt-1">
+                  Eigen ritme
+                </Text>
+                <Text className="text-white/55 text-sm text-center mt-1 mb-5">
+                  Hoe lang werk je en hoe lang pauzeer je per ronde?
+                </Text>
+              </View>
+            </GestureDetector>
 
             <StepperCard
               label="Werktijd"
@@ -177,7 +214,7 @@ export function CustomDurationSheet({
             </View>
           </View>
         </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -201,6 +238,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 10,
     paddingBottom: 36,
+  },
+  // Bigger drag-handle hit area than the visible bar alone, so a slow
+  // swipe near the title still triggers the dismiss gesture.
+  dragHandleZone: {
+    paddingBottom: 4,
   },
   grabber: {
     alignSelf: "center",

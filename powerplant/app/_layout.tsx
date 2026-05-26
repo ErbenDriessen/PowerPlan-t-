@@ -3,6 +3,7 @@ import "../global.css";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAppFonts } from "../hooks/useAppFonts";
 import { todayKey } from "../lib/dates";
 import { useUserStore } from "../stores/useUserStore";
@@ -28,13 +29,15 @@ export default function RootLayout() {
   if (!fontsLoaded || !hasHydrated) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="focus" />
-      <Stack.Screen name="dagboek" />
-      <Stack.Screen name="meditation" options={{ presentation: "modal" }} />
-      <Stack.Screen name="breathing" options={{ presentation: "modal" }} />
-    </Stack>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="focus" />
+        <Stack.Screen name="dagboek" />
+        <Stack.Screen name="meditation" options={{ presentation: "modal" }} />
+        <Stack.Screen name="breathing" options={{ presentation: "modal" }} />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }

@@ -40,41 +40,55 @@ export function TaskRow({ label, sub, time, done, onToggle, onEdit }: Props) {
   }));
 
   return (
-    <Pressable onPress={onToggle} className="flex-row items-center gap-3 py-1.5">
-      <View
-        className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-          done ? "bg-primary border-primary" : "border-white/30 bg-transparent"
-        }`}
+    <View className="flex-row items-center py-1.5">
+      {/* Toggle area: checkbox + label/sub. Its own Pressable so the edit
+          button on the right never accidentally toggles the goal. */}
+      <Pressable
+        onPress={onToggle}
+        className="flex-row items-center gap-3 flex-1"
       >
-        {done && (
-          <View
-            className="w-1.5 h-3 border-r-2 border-b-2 border-white"
-            style={{ transform: [{ rotate: "45deg" }, { translateY: -2 }] }}
-          />
-        )}
-      </View>
-      <View className="flex-1">
-        <Text className="text-white font-semibold text-sm">{label}</Text>
-        <Text className="text-white/55 text-xs">{sub}</Text>
-      </View>
+        <View
+          className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+            done ? "bg-primary border-primary" : "border-white/30 bg-transparent"
+          }`}
+        >
+          {done && (
+            <View
+              className="w-1.5 h-3 border-r-2 border-b-2 border-white"
+              style={{ transform: [{ rotate: "45deg" }, { translateY: -2 }] }}
+            />
+          )}
+        </View>
+        <View className="flex-1">
+          <Text className="text-white font-semibold text-sm">{label}</Text>
+          {sub.length > 0 ? (
+            <Text className="text-white/55 text-xs">{sub}</Text>
+          ) : null}
+        </View>
+      </Pressable>
+
       {time ? (
-        <Text className="text-white/65 font-bold text-xs tabular-nums">{time}</Text>
+        <Text className="text-white/65 font-bold text-xs tabular-nums mr-1">
+          {time}
+        </Text>
       ) : null}
+
       {onEdit ? (
         <Pressable
           onPress={onEdit}
-          hitSlop={10}
+          hitSlop={12}
           accessibilityLabel={`${label} bewerken`}
-          className="w-8 h-8 items-center justify-center rounded-full active:bg-white/[0.08]"
+          className="w-11 h-11 items-center justify-center rounded-full active:bg-white/[0.10]"
         >
-          <Text className="text-white/55 text-xl leading-none">⋯</Text>
+          <Text className="text-white/60 text-2xl leading-none">⋯</Text>
         </Pressable>
       ) : null}
+
       <Animated.Text
         style={[
           {
             position: "absolute",
-            right: 10,
+            right: 50,
             color: "#9BCE5C",
             fontWeight: "800",
             fontSize: 14,
@@ -86,6 +100,6 @@ export function TaskRow({ label, sub, time, done, onToggle, onEdit }: Props) {
       >
         +10
       </Animated.Text>
-    </Pressable>
+    </View>
   );
 }

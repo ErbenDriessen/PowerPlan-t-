@@ -1,6 +1,6 @@
 // powerplant/components/GoalEditSheet.tsx
 import * as Haptics from "expo-haptics";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,6 +11,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import Animated, {
   Easing,
   runOnJS,
@@ -21,6 +26,8 @@ import Animated, {
 import { GhostButton, PrimaryButton } from "./buttons";
 
 const SHEET_OFFSCREEN = 700;
+const SWIPE_DISMISS_PX = 90;
+const SWIPE_DISMISS_VELOCITY = 700;
 
 export type GoalEditValue = {
   title: string;
@@ -50,11 +57,20 @@ export function GoalEditSheet({
   const translateY = useSharedValue(SHEET_OFFSCREEN);
   const backdrop = useSharedValue(0);
 
+  // Hold the latest `initial` in a ref so we can read it inside an effect
+  // that only fires on `visible` change — avoids re-running the open
+  // animation every render and reseting input state mid-edit.
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+
   useEffect(() => {
     if (visible) {
+      // Force a clean starting position even if the previous close was
+      // cancelled mid-flight; otherwise the open animation can be a no-op.
+      translateY.value = SHEET_OFFSCREEN;
       setMounted(true);
-      setTitle(initial.title);
-      setDescription(initial.description);
+      setTitle(initialRef.current.title);
+      setDescription(initialRef.current.description);
       translateY.value = withTiming(0, {
         duration: 340,
         easing: Easing.out(Easing.cubic),
@@ -65,11 +81,11 @@ export function GoalEditSheet({
         duration: 280,
         easing: Easing.in(Easing.cubic),
       });
-      backdrop.value = withTiming(0, { duration: 240 }, (done) => {
+      backdrop.value = withTiming(0, { duration: 280 }, (done) => {
         if (done) runOnJS(setMounted)(false);
       });
     }
-  }, [visible, initial.title, initial.description, translateY, backdrop]);
+  }, [visible, translateY, backdrop]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -77,6 +93,21 @@ export function GoalEditSheet({
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdrop.value,
   }));
+
+  // Swipe-down on the drag handle dismisses the sheet.
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > SWIPE_DISMISS_PX || e.velocityY > SWIPE_DISMISS_VELOCITY) {
+        runOnJS(onCancel)();
+      } else {
+        translateY.value = withTiming(0, { duration: 200 });
+      }
+    });
 
   const submit = () => {
     const cleanTitle = title.trim();
@@ -104,7 +135,9 @@ export function GoalEditSheet({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      <View style={{ flex: 1 }}>
+      {/* GestureHandlerRootView is needed inside Modal — the modal renders
+          in a separate native window that doesn't inherit the app-root one. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, backdropStyle]}>
           <Pressable style={{ flex: 1 }} onPress={onCancel} accessibilityLabel="Sluit doel" />
         </Animated.View>
@@ -116,35 +149,51 @@ export function GoalEditSheet({
         >
           <Animated.View style={sheetStyle}>
             <View style={styles.sheet}>
-              <View style={styles.grabber} />
+              <GestureDetector gesture={panGesture}>
+                <View style={styles.dragHandleZone}>
+                  <View style={styles.grabber} />
+                  <Text className="text-white text-xl font-extrabold text-center mt-1">
+                    {mode === "add" ? "Nieuw doel" : "Doel bewerken"}
+                  </Text>
+                  <Text className="text-white/55 text-sm text-center mt-1 mb-5">
+                    Korte titel, en eventueel een beschrijving.
+                  </Text>
+                </View>
+              </GestureDetector>
 
-              <Text className="text-white text-xl font-extrabold text-center mt-1">
-                {mode === "add" ? "Nieuw doel" : "Doel bewerken"}
-              </Text>
-              <Text className="text-white/55 text-sm text-center mt-1 mb-5">
-                Korte titel, en eventueel een beschrijving.
-              </Text>
+              <View className="bg-white/[0.07] border border-white/10 rounded-3xl px-4 pt-3 pb-3 mb-3">
+                <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-1.5">
+                  Titel
+                </Text>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="bv. Wandelen"
+                  placeholderTextColor="rgba(255,255,255,0.30)"
+                  autoFocus
+                  returnKeyType="next"
+                  className="text-white text-base"
+                  style={{ paddingVertical: 6 }}
+                />
+              </View>
 
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Titel — bv. Wandelen"
-                placeholderTextColor="rgba(255,255,255,0.35)"
-                autoFocus
-                returnKeyType="next"
-                className="bg-white/[0.07] border border-white/15 rounded-2xl px-4 py-3 text-white text-base mb-3"
-              />
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Beschrijving — bv. 15 min, buiten (optioneel)"
-                placeholderTextColor="rgba(255,255,255,0.35)"
-                returnKeyType="done"
-                onSubmitEditing={submit}
-                multiline
-                className="bg-white/[0.07] border border-white/15 rounded-2xl px-4 py-3 text-white text-base mb-5"
-                style={{ minHeight: 64, textAlignVertical: "top" }}
-              />
+              <View className="bg-white/[0.07] border border-white/10 rounded-3xl px-4 pt-3 pb-3 mb-5">
+                <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-1.5">
+                  Beschrijving{" "}
+                  <Text className="text-white/30 text-[10px] normal-case">(optioneel)</Text>
+                </Text>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="bv. 15 min, buiten"
+                  placeholderTextColor="rgba(255,255,255,0.30)"
+                  returnKeyType="done"
+                  onSubmitEditing={submit}
+                  multiline
+                  className="text-white text-base"
+                  style={{ minHeight: 56, textAlignVertical: "top", paddingVertical: 6 }}
+                />
+              </View>
 
               <PrimaryButton label="Bewaren" onPress={submit} />
               <View style={{ height: 10 }} />
@@ -163,7 +212,7 @@ export function GoalEditSheet({
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -185,6 +234,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 10,
     paddingBottom: 36,
+  },
+  // Bigger drag-handle hit area than the visible bar alone, so a slow
+  // swipe near the title still triggers the dismiss gesture.
+  dragHandleZone: {
+    paddingBottom: 4,
   },
   grabber: {
     alignSelf: "center",
