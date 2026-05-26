@@ -1,10 +1,15 @@
 // powerplant/app/focus/running.tsx
+import { useKeepAwake } from "expo-keep-awake";
 import { router } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useKeepAwake } from "expo-keep-awake";
+import { AppState, Pressable, Text, View } from "react-native";
 import { Mascot } from "../../components/Mascot";
 import { ProgressRing } from "../../components/ProgressRing";
+import {
+  cancelScheduled,
+  ensureNotificationPermission,
+  scheduleAt,
+} from "../../lib/notifications";
 import { useFocusStore } from "../../stores/useFocusStore";
 import { useUserStore } from "../../stores/useUserStore";
 
@@ -22,26 +27,80 @@ export default function FocusRunning() {
   const currentRnd = useFocusStore((s) => s.currentRnd);
   const rnds = useFocusStore((s) => s.rnds);
   const finished = useFocusStore((s) => s.finished);
+  const phaseEndAt = useFocusStore((s) => s.phaseEndAt);
+  const completedWorkRounds = useFocusStore((s) => s.completedWorkRounds);
   const tick = useFocusStore((s) => s.tick);
-  const nextPhase = useFocusStore((s) => s.nextPhase);
   const stop = useFocusStore((s) => s.stop);
   const addPoints = useUserStore((s) => s.addPoints);
 
-  const wasBreak = useRef(isBreak);
+  const notifIdRef = useRef<string | null>(null);
+  const prevCompletedRef = useRef(completedWorkRounds);
 
-  // tick every second
+  // Ask for notification permission once (no-op in Expo Go).
   useEffect(() => {
+    ensureNotificationPermission().catch(() => {});
+  }, []);
+
+  // Tick every second from wall-clock time. tick() handles phase rollovers.
+  useEffect(() => {
+    tick(); // immediate sync on mount
     const id = setInterval(() => tick(), 1000);
     return () => clearInterval(id);
   }, [tick]);
 
-  // transition phases
+  // Snap the countdown forward the moment we come back from background.
   useEffect(() => {
-    if (remaining === 0 && total > 0) {
-      if (!isBreak) addPoints(20, 0.1);
-      nextPhase();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") tick();
+    });
+    return () => sub.remove();
+  }, [tick]);
+
+  // Award points whenever a work round completes. Uses a ref to detect
+  // deltas, so backgrounded sessions that skip multiple rounds still pay out.
+  useEffect(() => {
+    const delta = completedWorkRounds - prevCompletedRef.current;
+    if (delta > 0) addPoints(20 * delta, 0.1 * delta);
+    prevCompletedRef.current = completedWorkRounds;
+  }, [completedWorkRounds, addPoints]);
+
+  // Schedule a notification at the next phase boundary, so the user is
+  // pinged even if the app is backgrounded when the phase rolls over.
+  // No-op in Expo Go (the wrapper handles that).
+  useEffect(() => {
+    const previousId = notifIdRef.current;
+    notifIdRef.current = null;
+    cancelScheduled(previousId).catch(() => {});
+
+    if (finished || phaseEndAt === null) return;
+    const ms = phaseEndAt - Date.now();
+    if (ms <= 1500) return;
+
+    let title: string;
+    let body: string;
+    if (!isBreak) {
+      title = "Werktijd voorbij — pauze begint!";
+      body = "Strek je benen even. Sprout wacht hier.";
+    } else if (currentRnd < rnds) {
+      title = "Pauze voorbij — terug aan het werk";
+      body = `Ronde ${currentRnd + 1} van ${rnds} kan beginnen.`;
+    } else {
+      title = "Focusblok klaar! 🌳";
+      body = "Mooi gedaan — je boom is weer wat gegroeid.";
     }
-  }, [remaining, total, isBreak, addPoints, nextPhase]);
+
+    scheduleAt(new Date(phaseEndAt), title, body)
+      .then((id) => {
+        notifIdRef.current = id;
+      })
+      .catch(() => {});
+
+    return () => {
+      const idToCancel = notifIdRef.current;
+      notifIdRef.current = null;
+      cancelScheduled(idToCancel).catch(() => {});
+    };
+  }, [phaseEndAt, isBreak, currentRnd, rnds, finished]);
 
   // exit when finished
   useEffect(() => {
@@ -51,7 +110,8 @@ export default function FocusRunning() {
     }
   }, [finished]);
 
-  const progress = total ? 1 - remaining / total : 0;
+  // Countdown ring: starts full, drains counter-clockwise as time passes.
+  const progress = total ? remaining / total : 0;
   const label = finished
     ? "Klaar"
     : `${isBreak ? "Pauze" : "Werkblok"} ${currentRnd} van ${rnds}`;
