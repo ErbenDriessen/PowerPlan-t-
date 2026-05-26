@@ -14,9 +14,10 @@ type Props = {
   time?: string;
   done: boolean;
   onToggle: () => void;
+  onEdit?: () => void;
 };
 
-export function TaskRow({ label, sub, time, done, onToggle }: Props) {
+export function TaskRow({ label, sub, time, done, onToggle, onEdit }: Props) {
   const floatY = useSharedValue(0);
   const floatO = useSharedValue(0);
 
@@ -58,6 +59,16 @@ export function TaskRow({ label, sub, time, done, onToggle }: Props) {
       </View>
       {time ? (
         <Text className="text-white/65 font-bold text-xs tabular-nums">{time}</Text>
+      ) : null}
+      {onEdit ? (
+        <Pressable
+          onPress={onEdit}
+          hitSlop={10}
+          accessibilityLabel={`${label} bewerken`}
+          className="w-8 h-8 items-center justify-center rounded-full active:bg-white/[0.08]"
+        >
+          <Text className="text-white/55 text-xl leading-none">⋯</Text>
+        </Pressable>
       ) : null}
       <Animated.Text
         style={[

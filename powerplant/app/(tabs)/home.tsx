@@ -1,17 +1,24 @@
 // powerplant/app/(tabs)/home.tsx
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GhostButton, PrimaryButton } from "../../components/buttons";
 import { GlassCard } from "../../components/GlassCard";
+import { GoalEditSheet, GoalEditValue } from "../../components/GoalEditSheet";
 import { Mascot } from "../../components/Mascot";
 import { ProgressRing } from "../../components/ProgressRing";
 import { TaskRow } from "../../components/TaskRow";
 import { Tree } from "../../components/Tree";
 import { formatDateNL, greetingForHour } from "../../lib/dates";
 import { STAGE_LABELS, useUserStore } from "../../stores/useUserStore";
+
+type GoalEditState =
+  | { mode: "add" }
+  | { mode: "edit"; id: string; title: string; description: string }
+  | null;
 
 export default function Home() {
   const name = useUserStore((s) => s.name);
@@ -24,12 +31,37 @@ export default function Home() {
 
   const goals = useUserStore((s) => s.goals);
   const toggleGoalDone = useUserStore((s) => s.toggleGoalDone);
+  const addGoal = useUserStore((s) => s.addGoal);
+  const updateGoal = useUserStore((s) => s.updateGoal);
+  const removeGoal = useUserStore((s) => s.removeGoal);
+
+  const [editing, setEditing] = useState<GoalEditState>(null);
 
   const onToggle = (id: string) => {
     const wasDone = goals.find((g) => g.id === id)?.done;
     toggleGoalDone(id);
     addPoints(wasDone ? -10 : 10, wasDone ? -0.06 : 0.06);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+
+  const openAdd = () => setEditing({ mode: "add" });
+  const openEdit = (g: { id: string; title: string; description: string }) =>
+    setEditing({ mode: "edit", id: g.id, title: g.title, description: g.description });
+  const closeSheet = () => setEditing(null);
+
+  const onSheetConfirm = (v: GoalEditValue) => {
+    if (!editing) return;
+    if (editing.mode === "add") {
+      addGoal(v);
+    } else {
+      updateGoal(editing.id, v);
+    }
+    setEditing(null);
+  };
+  const onSheetDelete = () => {
+    if (editing?.mode !== "edit") return;
+    removeGoal(editing.id);
+    setEditing(null);
   };
 
   const bed = `${String(bedH).padStart(2, "0")}:${String(bedM).padStart(2, "0")}`;
@@ -94,7 +126,7 @@ export default function Home() {
           </View>
         </GlassCard>
 
-        {/* Today list */}
+        {/* Today list — full goal management */}
         <GlassCard className="p-5 mb-4">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-white font-extrabold">Vandaag</Text>
@@ -102,7 +134,7 @@ export default function Home() {
           </View>
           {goals.length === 0 ? (
             <Text className="text-white/55 text-sm py-2">
-              Nog geen doelen. Voeg er een toe via Planning of de "+ Doel toevoegen" knop hieronder.
+              Nog geen doelen. Voeg er hieronder een toe.
             </Text>
           ) : (
             goals.map((g) => (
@@ -112,13 +144,24 @@ export default function Home() {
                 sub={g.description}
                 done={g.done}
                 onToggle={() => onToggle(g.id)}
+                onEdit={() => openEdit(g)}
               />
             ))
           )}
         </GlassCard>
 
-        {/* Bedtime */}
-        <GlassCard variant="warm" className="p-4 mb-4 flex-row items-center gap-3">
+        {/* CTAs — directly under the list so adding a goal feels connected */}
+        <View className="flex-row gap-3 mb-4">
+          <View className="flex-1">
+            <GhostButton label="+ Doel toevoegen" onPress={openAdd} />
+          </View>
+          <View className="flex-1">
+            <PrimaryButton label="▶ Start focusblok" onPress={() => router.push("/focus/setup" as any)} />
+          </View>
+        </View>
+
+        {/* Bedtime — informational, lower priority */}
+        <GlassCard variant="warm" className="p-4 flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-full bg-yellow/25 items-center justify-center">
             <Text style={{ fontSize: 18 }}>🌙</Text>
           </View>
@@ -128,17 +171,20 @@ export default function Home() {
           </View>
           <Text className="text-yellow text-lg font-extrabold tabular-nums">{bed}</Text>
         </GlassCard>
-
-        {/* CTAs */}
-        <View className="flex-row gap-3 mt-1">
-          <View className="flex-1">
-            <GhostButton label="+ Doel toevoegen" onPress={() => router.push("/(tabs)/planning")} />
-          </View>
-          <View className="flex-1">
-            <PrimaryButton label="▶ Start focusblok" onPress={() => router.push("/focus/setup" as any)} />
-          </View>
-        </View>
       </ScrollView>
+
+      <GoalEditSheet
+        visible={editing !== null}
+        mode={editing?.mode ?? "add"}
+        initial={
+          editing?.mode === "edit"
+            ? { title: editing.title, description: editing.description }
+            : { title: "", description: "" }
+        }
+        onConfirm={onSheetConfirm}
+        onCancel={closeSheet}
+        onDelete={editing?.mode === "edit" ? onSheetDelete : undefined}
+      />
     </View>
   );
 }
