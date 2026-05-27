@@ -8,8 +8,8 @@ import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GhostButton, PrimaryButton } from "../../components/buttons";
 import { GlassCard } from "../../components/GlassCard";
 import { GoalEditSheet, GoalEditValue } from "../../components/GoalEditSheet";
+import { HorseshoeProgress } from "../../components/HorseshoeProgress";
 import { Mascot } from "../../components/Mascot";
-import { ProgressRing } from "../../components/ProgressRing";
 import { TaskRow } from "../../components/TaskRow";
 import { Tree } from "../../components/Tree";
 import { formatDateNL, greetingForHour } from "../../lib/dates";
@@ -25,6 +25,7 @@ export default function Home() {
   const points = useUserStore((s) => s.points);
   const ringProgress = useUserStore((s) => s.ringProgress);
   const treeStage = useUserStore((s) => s.treeStage);
+  const currentSpecies = useUserStore((s) => s.currentSpecies);
   const bedH = useUserStore((s) => s.bedH);
   const bedM = useUserStore((s) => s.bedM);
   const addPoints = useUserStore((s) => s.addPoints);
@@ -108,17 +109,19 @@ export default function Home() {
             🌿 {STAGE_LABELS[treeStage - 1] ?? "Boom"}
           </Text>
           <Text className="absolute top-4 right-5 text-xs font-bold text-yellow bg-yellow/10 border border-yellow/25 px-2.5 py-1 rounded-full">
-            Stadium {treeStage} / 7
+            Stadium {treeStage} / 5
           </Text>
-          <View className="h-[260px] items-center justify-end mt-6">
+          <View className="h-[240px] items-center justify-end mt-6">
+            {/* Horseshoe progress dial — opens at bottom, fills L→R via top */}
             <View style={{ position: "absolute", top: 10 }}>
-              <ProgressRing size={240} progress={ringProgress} />
+              <HorseshoeProgress size={240} progress={ringProgress} />
             </View>
-            <View style={{ position: "absolute", bottom: 0 }}>
-              <Tree size={200} stage={treeStage as 1 | 2 | 3 | 4 | 5 | 6 | 7} />
+            {/* Tree sits in the opening of the horseshoe at the bottom */}
+            <View style={{ position: "absolute", bottom: 4 }}>
+              <Tree size={140} stage={treeStage} species={currentSpecies} />
             </View>
             <View style={{ position: "absolute", bottom: 2, right: 4 }}>
-              <Mascot size={78} breathing="slow" />
+              <Mascot size={70} breathing="slow" />
             </View>
           </View>
           <View className="absolute bottom-5 left-5 bg-white/15 border border-white/15 rounded-full px-3 py-1.5">

@@ -32,6 +32,8 @@ export default function Settings() {
   const resetGoalsDone = useUserStore((s) => s.resetGoalsDone);
   const simulateNextDay = useUserStore((s) => s.simulateNextDay);
   const userDevReset = useUserStore((s) => s.devReset);
+  const resetForest = useUserStore((s) => s.resetForest);
+  const bomenGeplant = useUserStore((s) => s.bomenGeplant);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
   const historyDevReset = useDailyProgressStore((s) => s.devReset);
@@ -145,11 +147,13 @@ export default function Settings() {
         {/* Punten + stadium */}
         <GlassCard className="mb-3 p-4">
           <Text className="text-white text-sm font-semibold mb-1">
-            {points} punten · Stadium {treeStage}/7 · {stageLabel}
+            {points} punten · Stadium {treeStage}/5 · {stageLabel}
           </Text>
           <Text className="text-white/55 text-xs mb-3">
             {nextThreshold !== null
-              ? `Nog ${pointsToNext} punten tot stadium ${treeStage + 1}`
+              ? `Nog ${pointsToNext} punten tot ${
+                  treeStage >= 5 ? "prestige" : `stadium ${treeStage + 1}`
+                }`
               : "Hoogste stadium bereikt 🌳"}
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -176,6 +180,26 @@ export default function Settings() {
               className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
             >
               <Text className="text-white font-bold text-sm">-50</Text>
+            </Pressable>
+          </View>
+        </GlassCard>
+
+        {/* Prestige bos */}
+        <GlassCard className="mb-3 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            Bomen in het bos: {bomenGeplant}
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            Elke keer dat je groeiende boom stadium 5 bereikt verhuist 'ie naar het bos
+            achter het raam. Hier kun je het bos handmatig leeghalen om de "fresh
+            start"-look te testen.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <Pressable
+              onPress={resetForest}
+              className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Wis bos</Text>
             </Pressable>
           </View>
         </GlassCard>
