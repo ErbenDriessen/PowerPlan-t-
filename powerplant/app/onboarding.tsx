@@ -1,6 +1,6 @@
 // powerplant/app/onboarding.tsx
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Chip } from "../components/Chip";
 import { DuskBackground } from "../components/DuskBackground";
@@ -64,11 +64,27 @@ export default function Onboarding() {
   const goals = useUserStore((s) => s.goals);
   const bedH = useUserStore((s) => s.bedH);
   const bedM = useUserStore((s) => s.bedM);
+  const points = useUserStore((s) => s.points);
+  const bomenGeplant = useUserStore((s) => s.bomenGeplant);
+  const hasOnboarded = useUserStore((s) => s.hasOnboarded);
   const setName = useUserStore((s) => s.setName);
   const toggleGoal = useUserStore((s) => s.toggleGoal);
   const bumpHour = useUserStore((s) => s.bumpHour);
   const bumpMin = useUserStore((s) => s.bumpMin);
   const finish = useUserStore((s) => s.finishOnboarding);
+
+  // Last-resort safety net: if this screen ever mounts while the user is
+  // already onboarded (deep link, route restoration, persist race…), get
+  // out immediately so the user doesn't have to re-do onboarding.
+  const alreadyOnboarded =
+    hasOnboarded ||
+    name.length > 0 ||
+    goals.length > 0 ||
+    points > 0 ||
+    bomenGeplant > 0;
+  useEffect(() => {
+    if (alreadyOnboarded) router.replace("/(tabs)/home");
+  }, [alreadyOnboarded]);
 
   const done = () => {
     finish();
