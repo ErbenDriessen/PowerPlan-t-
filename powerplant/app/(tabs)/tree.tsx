@@ -8,6 +8,7 @@ import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
 import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
+import { usePrefsStore } from "../../stores/usePrefsStore";
 import { useUserStore } from "../../stores/useUserStore";
 
 // Cumulative-points milestones, lowest unmet is shown as "Volgende beloning".
@@ -46,6 +47,7 @@ export default function MijnBoom() {
   const streak = useUserStore((s) => s.streak);
   const goals = useUserStore((s) => s.goals);
   const history = useDailyProgressStore((s) => s.history);
+  const tijdOverride = usePrefsStore((s) => s.tijdOverride);
   const { width: screenW } = useWindowDimensions();
 
   const today = todayKey();
@@ -98,6 +100,7 @@ export default function MijnBoom() {
             width={screenW - 40}
             mainSpecies={currentSpecies}
             mainStage={treeStage}
+            timeOfDay={tijdOverride === "auto" ? undefined : tijdOverride}
           />
         </View>
         <Text className="text-center text-white/55 text-xs mb-4">

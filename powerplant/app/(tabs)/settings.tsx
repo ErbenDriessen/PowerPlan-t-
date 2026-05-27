@@ -35,6 +35,8 @@ export default function Settings() {
   const resetForest = useUserStore((s) => s.resetForest);
   const resetAppState = useUserStore((s) => s.resetApp);
   const bomenGeplant = useUserStore((s) => s.bomenGeplant);
+  const tijdOverride = usePrefsStore((s) => s.tijdOverride);
+  const setTijdOverride = usePrefsStore((s) => s.setTijdOverride);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
   const historyDevReset = useDailyProgressStore((s) => s.devReset);
@@ -192,6 +194,43 @@ export default function Settings() {
             >
               <Text className="text-white font-bold text-sm">-50</Text>
             </Pressable>
+          </View>
+        </GlassCard>
+
+        {/* Time-of-day override (voor demos) */}
+        <GlassCard className="mb-3 p-4">
+          <Text className="text-white text-sm font-semibold mb-1">
+            Tijd van de dag (raam-uitzicht)
+          </Text>
+          <Text className="text-white/55 text-xs mb-3">
+            Standaard volgt het raam de klok (6–17u dag, 17–20u dawn, 20–6u nacht).
+            Voor een demo kun je hier een vaste sfeer kiezen.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {(["auto", "day", "dusk", "night"] as const).map((mode) => {
+              const active = tijdOverride === mode;
+              const label =
+                mode === "auto"
+                  ? "Auto (klok)"
+                  : mode === "day"
+                    ? "Dag"
+                    : mode === "dusk"
+                      ? "Dawn"
+                      : "Nacht";
+              return (
+                <Pressable
+                  key={mode}
+                  onPress={() => setTijdOverride(mode)}
+                  className={`rounded-2xl px-4 py-2 border ${
+                    active
+                      ? "bg-primary border-primary-soft"
+                      : "bg-white/10 border-white/15"
+                  } active:opacity-80`}
+                >
+                  <Text className="text-white font-bold text-sm">{label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </GlassCard>
 
