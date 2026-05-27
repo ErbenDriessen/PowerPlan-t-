@@ -132,13 +132,24 @@ describe("useUserStore", () => {
   });
 
   it("addPoints clamps ringProgress to [0,1] and recomputes treeStage", () => {
-    act(() => useUserStore.getState().addPoints(50, 0.06));
+    act(() => useUserStore.getState().addPoints(150, 0.06));
     const s = useUserStore.getState();
-    expect(s.points).toBe(50);
+    expect(s.points).toBe(150);
     expect(s.ringProgress).toBeCloseTo(0.06);
     expect(s.treeStage).toBe(2);
     act(() => useUserStore.getState().addPoints(0, 1));
     expect(useUserStore.getState().ringProgress).toBe(1);
+  });
+
+  it("addPoints triggers prestige when crossing PRESTIGE_THRESHOLD", () => {
+    useUserStore.setState({ points: 700, plantedTrees: [], bomenGeplant: 0 });
+    act(() => useUserStore.getState().addPoints(80, 0));
+    const s = useUserStore.getState();
+    // 700 + 80 = 780 → plant 1 tree, 30 carry over
+    expect(s.points).toBe(30);
+    expect(s.bomenGeplant).toBe(1);
+    expect(s.plantedTrees).toHaveLength(1);
+    expect(s.treeStage).toBe(1);
   });
 
   it("finishOnboarding sets hasOnboarded true and defaults goals when empty", () => {
@@ -155,26 +166,25 @@ describe("useUserStore", () => {
 
   it("pointsToStage maps each threshold band correctly", () => {
     expect(pointsToStage(0)).toBe(1);
-    expect(pointsToStage(49)).toBe(1);
-    expect(pointsToStage(50)).toBe(2);
-    expect(pointsToStage(99)).toBe(2);
-    expect(pointsToStage(100)).toBe(3);
-    expect(pointsToStage(200)).toBe(4);
-    expect(pointsToStage(350)).toBe(5);
-    expect(pointsToStage(500)).toBe(6);
-    expect(pointsToStage(750)).toBe(7);
-    expect(pointsToStage(10_000)).toBe(7);
+    expect(pointsToStage(149)).toBe(1);
+    expect(pointsToStage(150)).toBe(2);
+    expect(pointsToStage(299)).toBe(2);
+    expect(pointsToStage(300)).toBe(3);
+    expect(pointsToStage(450)).toBe(4);
+    expect(pointsToStage(600)).toBe(5);
+    expect(pointsToStage(749)).toBe(5);
   });
 
-  it("pointsToNextThreshold returns the next stage's cutoff or null at max", () => {
-    expect(pointsToNextThreshold(0)).toBe(50);
-    expect(pointsToNextThreshold(120)).toBe(200);
-    expect(pointsToNextThreshold(500)).toBe(750);
-    expect(pointsToNextThreshold(750)).toBeNull();
+  it("pointsToNextThreshold returns the next stage cutoff or the prestige threshold", () => {
+    expect(pointsToNextThreshold(0)).toBe(150);
+    expect(pointsToNextThreshold(200)).toBe(300);
+    expect(pointsToNextThreshold(600)).toBe(750);
+    // Final stage points still report the prestige milestone as the target.
+    expect(pointsToNextThreshold(700)).toBe(750);
   });
 
-  it("STAGE_THRESHOLDS has exactly 7 entries", () => {
-    expect(STAGE_THRESHOLDS).toHaveLength(7);
+  it("STAGE_THRESHOLDS has exactly 5 entries", () => {
+    expect(STAGE_THRESHOLDS).toHaveLength(5);
     expect(STAGE_THRESHOLDS[0]).toBe(0);
   });
 

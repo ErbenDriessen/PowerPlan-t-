@@ -1,11 +1,11 @@
 // powerplant/app/(tabs)/tree.tsx
 import { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
+import { Forest } from "../../components/Forest";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
-import { Tree } from "../../components/Tree";
 import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
 import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import { useUserStore } from "../../stores/useUserStore";
@@ -40,9 +40,13 @@ function cellState(
 export default function MijnBoom() {
   const points = useUserStore((s) => s.points);
   const treeStage = useUserStore((s) => s.treeStage);
+  const currentSpecies = useUserStore((s) => s.currentSpecies);
+  const plantedTrees = useUserStore((s) => s.plantedTrees);
+  const bomenGeplant = useUserStore((s) => s.bomenGeplant);
   const streak = useUserStore((s) => s.streak);
   const goals = useUserStore((s) => s.goals);
   const history = useDailyProgressStore((s) => s.history);
+  const { width: screenW } = useWindowDimensions();
 
   const today = todayKey();
   const weekNumber = getISOWeek(new Date());
@@ -85,9 +89,22 @@ export default function MijnBoom() {
       </View>
 
       <ScrollView contentContainerClassName="px-5 pt-2 pb-32">
-        <View className="h-[300px] items-center justify-end mb-3">
-          <Tree size={240} stage={treeStage as 1 | 2 | 3 | 4 | 5 | 6 | 7} />
+        {/* Window scene: wooden frame, sill with the user's growing tree
+            in a pot, view of the landscape + planted-forest behind the
+            glass. Time of day auto-detected from the device clock. */}
+        <View className="mb-3">
+          <Forest
+            trees={plantedTrees}
+            width={screenW - 40}
+            mainSpecies={currentSpecies}
+            mainStage={treeStage}
+          />
         </View>
+        <Text className="text-center text-white/55 text-xs mb-4">
+          {bomenGeplant === 0
+            ? "Nog geen bomen geplant — laat deze eerst volgroeien."
+            : `Je hebt ${bomenGeplant} ${bomenGeplant === 1 ? "boom" : "bomen"} geplant in je bos.`}
+        </Text>
 
         <View className="flex-row gap-2 mb-5">
           <GlassCard className="flex-1 p-3 items-center">

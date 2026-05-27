@@ -1,3 +1,11 @@
+// powerplant/components/Tree.tsx
+//
+// Standalone tree component for the home hero card. Uses the *actual*
+// stage sprite from the atlas per growth stage (sapling → mature), so
+// the user sees the tree's silhouette transform as it grows — not just
+// a shrunken mature tree. Each stage renders at its own sensible
+// height to keep saplings crisp.
+
 import { useEffect } from "react";
 import Animated, {
   Easing,
@@ -7,29 +15,35 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle, Ellipse, G, Path } from "react-native-svg";
+import { getTreeSprite } from "../lib/plantSprites";
+import { PlantSprite } from "./PlantSprite";
 
-type Props = { size?: number; stage?: 1 | 2 | 3 | 4 | 5 | 6 | 7; sway?: boolean };
+// Design-pixel heights per stage. Tuned so each stage looks meaningful
+// without aggressive upscaling of the small early sprites. Callers can
+// pass `size` to proportionally scale the whole curve up or down.
+const STAGE_HEIGHTS = [60, 92, 124, 150, 170] as const;
+const BASELINE = STAGE_HEIGHTS[4];
 
-// Linear scale of the foliage. Stage 7 = full size; stage 1 = sapling.
-const STAGE_SCALE: Record<number, number> = {
-  1: 0.35,
-  2: 0.5,
-  3: 0.7,
-  4: 0.82,
-  5: 0.92,
-  6: 0.97,
-  7: 1,
+type Props = {
+  /** Display height at the mature (final) stage. Earlier stages render
+   *  proportionally smaller, using their own stage sprite. */
+  size?: number;
+  /** Growth stage 1..5. */
+  stage?: number;
+  /** Species index 0..2. */
+  species?: number;
+  sway?: boolean;
 };
 
-export function Tree({ size = 200, stage = 3, sway = true }: Props) {
+export function Tree({ size = BASELINE, stage = 5, species = 0, sway = true }: Props) {
   const rot = useSharedValue(0);
+
   useEffect(() => {
     if (!sway) return;
     rot.value = withRepeat(
       withSequence(
-        withTiming(-1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       true,
@@ -40,49 +54,19 @@ export function Tree({ size = 200, stage = 3, sway = true }: Props) {
     transform: [{ rotate: `${rot.value}deg` }],
   }));
 
-  const s = STAGE_SCALE[stage];
+  const visibleStage = Math.max(0, Math.min(STAGE_HEIGHTS.length - 1, stage - 1));
+  const sizeFactor = size / BASELINE;
+  const renderHeight = STAGE_HEIGHTS[visibleStage] * sizeFactor;
+  const sprite = getTreeSprite(species, visibleStage);
 
   return (
-    <Animated.View style={[{ width: size, height: size * 1.2 }, style]}>
-      <Svg viewBox="0 0 200 240" width="100%" height="100%">
-        <Ellipse cx="100" cy="228" rx="64" ry="6" fill="#000" opacity={0.25} />
-        <Path
-          d="M92 228 C90 200 88 170 94 140 C98 120 100 105 100 90 C100 105 102 120 106 140 C112 170 110 200 108 228 Z"
-          fill="#8B6F47"
-        />
-        <Path
-          d="M100 228 C100 200 100 170 100 140 C100 120 100 105 100 90 L100 228 Z"
-          fill="#6F5638"
-          opacity={0.5}
-        />
-        <G origin="100 100" scale={s}>
-          <Path
-            d="M100 130 Q86 122 76 116"
-            stroke="#8B6F47"
-            strokeWidth="5"
-            strokeLinecap="round"
-            fill="none"
-          />
-          <Path
-            d="M100 124 Q116 116 128 110"
-            stroke="#8B6F47"
-            strokeWidth="5"
-            strokeLinecap="round"
-            fill="none"
-          />
-          <Circle cx="100" cy="92" r="44" fill="#7CB342" />
-          <Circle cx="72" cy="108" r="32" fill="#6BA235" />
-          <Circle cx="130" cy="106" r="32" fill="#8FC85A" />
-          <Circle cx="100" cy="70" r="28" fill="#9BCE5C" />
-          <Circle cx="86" cy="100" r="22" fill="#7CB342" />
-          <Circle cx="118" cy="96" r="24" fill="#6BA235" />
-          <Circle cx="60" cy="92" r="18" fill="#7CB342" />
-          <Circle cx="140" cy="86" r="20" fill="#8FC85A" />
-          <Circle cx="116" cy="74" r="7" fill="#C2E58E" opacity={0.7} />
-          <Circle cx="80" cy="86" r="5" fill="#C2E58E" opacity={0.6} />
-          <Circle cx="98" cy="58" r="4" fill="#C2E58E" opacity={0.5} />
-        </G>
-      </Svg>
+    <Animated.View
+      style={[
+        { alignItems: "center", justifyContent: "flex-end", transformOrigin: "bottom" },
+        style,
+      ]}
+    >
+      <PlantSprite rect={sprite} height={renderHeight} />
     </Animated.View>
   );
 }

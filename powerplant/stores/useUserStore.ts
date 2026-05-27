@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { daysBetween } from "../lib/dates";
+import { SPECIES_COUNT } from "../lib/plantSprites";
 import { useDailyProgressStore } from "./useDailyProgressStore";
 
 export type Goal = {
@@ -10,6 +11,17 @@ export type Goal = {
   title: string;
   description: string;
   done: boolean;
+};
+
+// Each entry is a tree the user has "harvested" (took to max stage) and
+// planted into their background forest. Position metadata is captured at
+// plant time so the layout stays stable on re-renders.
+export type PlantedTree = {
+  species: number;
+  zBand: "far" | "mid";
+  xRatio: number; // horizontal position 0..1 within its z-band
+  swayOffset: number; // 0..1 — phase offset for the idle sway animation
+  plantedAt: number; // ms-since-epoch, for ordering
 };
 
 type UserState = {
@@ -24,6 +36,11 @@ type UserState = {
   streak: number;
   lastSeenDate: string | null;
   hasHydrated: boolean;
+
+  // Prestige
+  currentSpecies: number;
+  plantedTrees: PlantedTree[];
+  bomenGeplant: number;
 
   setName: (n: string) => void;
   toggleGoal: (title: string, description?: string) => void;
@@ -41,20 +58,24 @@ type UserState = {
   finishOnboarding: () => void;
   setHasHydrated: (v: boolean) => void;
   devReset: () => void;
+  /** Dev-only: clear only the prestige forest (keeps points/streak/etc). */
+  resetForest: () => void;
 };
 
 const DEFAULT_GOAL_TITLES = ["Minder stress", "Beter focussen", "Betere slaap"];
 
-// Point threshold (inclusive) at which each stage unlocks. Index = stage - 1.
-export const STAGE_THRESHOLDS = [0, 50, 100, 200, 350, 500, 750] as const;
+// Five visible growth stages map onto the 5 sprites we pick from the atlas
+// (see lib/plantSprites.ts). Per-stage thresholds are spaced evenly so each
+// stage feels like a meaningful step. Reaching PRESTIGE_THRESHOLD plants
+// the current tree into the forest and starts a fresh sapling.
+export const STAGE_THRESHOLDS = [0, 150, 300, 450, 600] as const;
+export const PRESTIGE_THRESHOLD = 750;
 
 export const STAGE_LABELS = [
   "Zaadje",
   "Spruit",
   "Jonge boom",
-  "Twijgen",
   "Bladerdek",
-  "Brede kruin",
   "Volgroeide boom",
 ] as const;
 
@@ -66,9 +87,16 @@ export function pointsToStage(points: number): number {
   return stage;
 }
 
+/**
+ * Next point milestone shown in the UI. While inside a tree's lifecycle we
+ * show the next stage threshold; on the final stage we show the prestige
+ * threshold so the user has a clear next goal.
+ */
 export function pointsToNextThreshold(points: number): number | null {
   const stage = pointsToStage(points);
-  if (stage >= STAGE_THRESHOLDS.length) return null;
+  if (stage >= STAGE_THRESHOLDS.length) {
+    return PRESTIGE_THRESHOLD;
+  }
   return STAGE_THRESHOLDS[stage];
 }
 
@@ -78,6 +106,26 @@ function newGoalId(): string {
 
 function makeGoal(title: string, description = ""): Goal {
   return { id: newGoalId(), title: title.trim(), description: description.trim(), done: false };
+}
+
+function randomSpecies(exclude?: number): number {
+  const all = Array.from({ length: SPECIES_COUNT }, (_, i) => i);
+  const pool = exclude !== undefined ? all.filter((s) => s !== exclude) : all;
+  return pool[Math.floor(Math.random() * pool.length)] ?? 0;
+}
+
+/**
+ * Build a new PlantedTree record for the just-matured `currentSpecies`,
+ * alternating its z-band so the forest fills both layers evenly.
+ */
+function makePlantedTree(species: number, existingCount: number): PlantedTree {
+  return {
+    species,
+    zBand: existingCount % 2 === 0 ? "mid" : "far",
+    xRatio: Math.random(),
+    swayOffset: Math.random(),
+    plantedAt: Date.now(),
+  };
 }
 
 export const useUserStore = create<UserState>()(
@@ -94,6 +142,9 @@ export const useUserStore = create<UserState>()(
       streak: 0,
       lastSeenDate: null,
       hasHydrated: false,
+      currentSpecies: 0,
+      plantedTrees: [],
+      bomenGeplant: 0,
 
       setName: (n) => set({ name: n.trim() }),
       toggleGoal: (title, description) => {
@@ -122,7 +173,7 @@ export const useUserStore = create<UserState>()(
             const nextTitle = input.title !== undefined ? input.title.trim() : g.title;
             const nextDesc =
               input.description !== undefined ? input.description.trim() : g.description;
-            if (!nextTitle) return g; // refuse to wipe the title
+            if (!nextTitle) return g;
             return { ...g, title: nextTitle, description: nextDesc };
           }),
         })),
@@ -135,11 +186,31 @@ export const useUserStore = create<UserState>()(
       bumpMin: (d) => set((s) => ({ bedM: (s.bedM + d + 60) % 60 })),
       addPoints: (delta, ringDelta) =>
         set((s) => {
-          const newPoints = Math.max(0, s.points + delta);
+          let newPoints = Math.max(0, s.points + delta);
+          let plantedTrees = s.plantedTrees;
+          let bomenGeplant = s.bomenGeplant;
+          let currentSpecies = s.currentSpecies;
+
+          // Prestige cascade: if the delta is large enough to skip past
+          // the threshold (or skip past it multiple times), plant a tree
+          // per crossing so no progress is lost.
+          while (newPoints >= PRESTIGE_THRESHOLD) {
+            plantedTrees = [
+              ...plantedTrees,
+              makePlantedTree(currentSpecies, plantedTrees.length),
+            ];
+            bomenGeplant += 1;
+            currentSpecies = randomSpecies(currentSpecies);
+            newPoints -= PRESTIGE_THRESHOLD;
+          }
+
           return {
             points: newPoints,
             ringProgress: Math.max(0, Math.min(1, s.ringProgress + ringDelta)),
             treeStage: pointsToStage(newPoints),
+            plantedTrees,
+            bomenGeplant,
+            currentSpecies,
           };
         }),
       bumpStreak: (delta) =>
@@ -147,15 +218,12 @@ export const useUserStore = create<UserState>()(
       rolloverIfNewDay: (today) => {
         const s = get();
         if (s.lastSeenDate === today) return;
-        // Capture yesterday's snapshot before we wipe the done flags so the
-        // Mijn-boom week grid has real data to work with.
         if (s.lastSeenDate !== null) {
           const goalsDone = s.goals.filter((g) => g.done).length;
           useDailyProgressStore
             .getState()
             .recordDay(s.lastSeenDate, s.goals.length, goalsDone);
         }
-        // Update streak based on yesterday's work.
         let newStreak = s.streak;
         if (s.lastSeenDate !== null) {
           const gap = daysBetween(s.lastSeenDate, today);
@@ -176,9 +244,6 @@ export const useUserStore = create<UserState>()(
         })),
       simulateNextDay: () => {
         const s = get();
-        // Dev-only: run the same streak + snapshot math the real rollover
-        // does, pretending we just crossed midnight. lastSeenDate is left
-        // alone so the real rollover still fires correctly tomorrow.
         if (s.lastSeenDate !== null) {
           const goalsDone = s.goals.filter((g) => g.done).length;
           useDailyProgressStore
@@ -202,35 +267,54 @@ export const useUserStore = create<UserState>()(
           hasOnboarded: true,
           name: s.name || "Vriend",
           goals,
+          // Roll the dice on a starting species so different users get
+          // different first trees.
+          currentSpecies: randomSpecies(),
         });
       },
       setHasHydrated: (v) => set({ hasHydrated: v }),
       devReset: () =>
-        set({ points: 0, ringProgress: 0, treeStage: 1, streak: 0 }),
+        set({
+          points: 0,
+          ringProgress: 0,
+          treeStage: 1,
+          streak: 0,
+          plantedTrees: [],
+          bomenGeplant: 0,
+          currentSpecies: randomSpecies(),
+        }),
+      resetForest: () =>
+        set({ plantedTrees: [], bomenGeplant: 0 }),
     }),
     {
       name: "powerplant-user",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
-      // v1 stored goals as string[]. Throw the old goals away on upgrade so
-      // the rest of the persisted data (name, bedtime, points...) survives.
+      // v1 stored goals as string[].
+      // v3 introduces the prestige system: plantedTrees, bomenGeplant,
+      // currentSpecies. Older state had a 7-stage threshold scale; existing
+      // points are kept as-is and just remap to the new 5-stage scale.
       migrate: (persisted: unknown, version) => {
         const obj = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
-          return { ...obj, goals: [] };
+          obj.goals = [];
+        }
+        if (version < 3) {
+          obj.plantedTrees = [];
+          obj.bomenGeplant = 0;
+          obj.currentSpecies = 0;
+          // Recompute treeStage against the new 5-stage thresholds so the
+          // displayed stage doesn't look out of whack right after upgrade.
+          const points = typeof obj.points === "number" ? obj.points : 0;
+          obj.treeStage = pointsToStage(Math.min(points, PRESTIGE_THRESHOLD - 1));
         }
         return obj;
       },
-      // hasHydrated is a runtime flag — never write it to AsyncStorage,
-      // otherwise a stale `true` could be read back before this session's
-      // rehydration actually completes.
       partialize: (state) => {
         const { hasHydrated, ...rest } = state;
         return rest;
       },
       onRehydrateStorage: () => () => {
-        // Always flip the flag from inside getState() so we don't depend
-        // on the rehydration callback's `state` argument being defined.
         useUserStore.getState().setHasHydrated(true);
       },
     },
