@@ -33,6 +33,7 @@ export default function Settings() {
   const simulateNextDay = useUserStore((s) => s.simulateNextDay);
   const userDevReset = useUserStore((s) => s.devReset);
   const resetForest = useUserStore((s) => s.resetForest);
+  const resetAppState = useUserStore((s) => s.resetApp);
   const bomenGeplant = useUserStore((s) => s.bomenGeplant);
   const journalDevReset = useJournalStore((s) => s.devReset);
   const journalEntryCount = useJournalStore((s) => s.entries.length);
@@ -48,6 +49,16 @@ export default function Settings() {
     userDevReset();
     journalDevReset();
     historyDevReset();
+  };
+
+  const resetApp = () => {
+    // Wipe everything to factory defaults (incl. hasOnboarded + name),
+    // then route back to onboarding so the next launch matches the
+    // first-install experience.
+    resetAppState();
+    journalDevReset();
+    historyDevReset();
+    router.replace("/onboarding");
   };
 
   return (
@@ -292,7 +303,17 @@ export default function Settings() {
             >
               <Text className="text-white font-bold text-sm">Reset alles</Text>
             </Pressable>
+            <Pressable
+              onPress={resetApp}
+              className="bg-yellow/20 border border-yellow/40 rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-yellow font-bold text-sm">Reset app (incl. onboarding)</Text>
+            </Pressable>
           </View>
+          <Text className="text-white/40 text-[11px] mt-2 leading-snug">
+            "Reset app" wist ook je naam, onboarding-status en alle voorkeuren — alsof je de
+            app opnieuw geïnstalleerd hebt. Stuurt je direct terug naar het onboarding-scherm.
+          </Text>
         </GlassCard>
 
         <Text className="text-center text-white/45 text-xs mt-2">

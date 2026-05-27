@@ -60,6 +60,9 @@ type UserState = {
   devReset: () => void;
   /** Dev-only: clear only the prestige forest (keeps points/streak/etc). */
   resetForest: () => void;
+  /** Dev-only: wipe ALL persisted user state back to factory defaults,
+   *  including `hasOnboarded`, so the next launch shows onboarding again. */
+  resetApp: () => void;
 };
 
 const DEFAULT_GOAL_TITLES = ["Minder stress", "Beter focussen", "Betere slaap"];
@@ -285,6 +288,22 @@ export const useUserStore = create<UserState>()(
         }),
       resetForest: () =>
         set({ plantedTrees: [], bomenGeplant: 0 }),
+      resetApp: () =>
+        set({
+          name: "",
+          goals: [],
+          bedH: 23,
+          bedM: 15,
+          hasOnboarded: false,
+          points: 0,
+          ringProgress: 0,
+          treeStage: 1,
+          streak: 0,
+          lastSeenDate: null,
+          currentSpecies: 0,
+          plantedTrees: [],
+          bomenGeplant: 0,
+        }),
     }),
     {
       name: "powerplant-user",
