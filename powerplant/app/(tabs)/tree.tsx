@@ -9,18 +9,18 @@ import { Mascot } from "../../components/Mascot";
 import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
 import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import { usePrefsStore } from "../../stores/usePrefsStore";
-import { useUserStore } from "../../stores/useUserStore";
+import {
+  PRESTIGE_THRESHOLD,
+  STAGE_LABELS,
+  STAGE_THRESHOLDS,
+  useUserStore,
+} from "../../stores/useUserStore";
 
-// Cumulative-points milestones, lowest unmet is shown as "Volgende beloning".
-type Reward = { points: number; label: string; emoji: string };
-const REWARDS: Reward[] = [
-  { points: 100, label: "Een vlinder voor je boom", emoji: "🦋" },
-  { points: 200, label: "Een bloemenkrans rond de boom", emoji: "🌸" },
-  { points: 350, label: "Een vogel op de boomtak", emoji: "🐦" },
-  { points: 500, label: "Een poel naast de boom", emoji: "💧" },
-  { points: 750, label: "Een hertje in de wei", emoji: "🦌" },
-  { points: 1000, label: "Een berglandschap op de achtergrond", emoji: "⛰️" },
-];
+// Visual cue per stage transition + the prestige milestone. Indexes
+// align with `treeStage` (1..5) → STAGE_EMOJI[treeStage] is the emoji
+// for the NEXT stage you'll reach (i.e. emoji at index 1 = stage 2).
+const STAGE_EMOJI = ["", "🌱", "🌿", "🪴", "🌳"] as const;
+const PRESTIGE_EMOJI = "🌳";
 
 const WEEKDAY_INITIALS = ["m", "d", "w", "d", "v", "z", "z"] as const;
 
@@ -70,15 +70,36 @@ export default function MijnBoom() {
     (d) => d.state === "done" || d.state === "today-done",
   ).length;
 
-  // Volgende beloning: first reward whose threshold the user hasn't reached
-  const nextReward = REWARDS.find((r) => points < r.points);
-  const prevReward = nextReward
-    ? [...REWARDS].reverse().find((r) => r.points < nextReward.points && points >= r.points)
-    : undefined;
-  const rewardBase = prevReward?.points ?? 0;
-  const rewardProgress = nextReward
-    ? Math.max(0, Math.min(1, (points - rewardBase) / (nextReward.points - rewardBase)))
-    : 1;
+  // Volgende beloning: the next REAL milestone in the prestige system —
+  // either the next stage of the current tree (1→2, 2→3, …, 4→5) or the
+  // prestige threshold that plants the mature tree in the forest.
+  const nextMilestone = (() => {
+    if (treeStage < 5) {
+      const nextStageIdx = treeStage; // STAGE_THRESHOLDS is 0-indexed
+      const threshold = STAGE_THRESHOLDS[nextStageIdx];
+      const base = STAGE_THRESHOLDS[nextStageIdx - 1] ?? 0;
+      return {
+        label: `Stadium ${treeStage + 1}: ${STAGE_LABELS[nextStageIdx]}`,
+        sub: `Nog ${threshold - points} punten om je boom te laten groeien`,
+        emoji: STAGE_EMOJI[nextStageIdx],
+        threshold,
+        base,
+      };
+    }
+    // Stage 5 → next prestige
+    const base = STAGE_THRESHOLDS[4];
+    return {
+      label: "Boom planten in je bos",
+      sub: `Nog ${PRESTIGE_THRESHOLD - points} punten tot je volgende prestige`,
+      emoji: PRESTIGE_EMOJI,
+      threshold: PRESTIGE_THRESHOLD,
+      base,
+    };
+  })();
+  const rewardProgress = Math.max(
+    0,
+    Math.min(1, (points - nextMilestone.base) / (nextMilestone.threshold - nextMilestone.base)),
+  );
 
   return (
     <View className="flex-1">
@@ -200,29 +221,21 @@ export default function MijnBoom() {
           <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-2">
             Volgende beloning
           </Text>
-          {nextReward ? (
-            <View className="flex-row items-center gap-4">
-              <View className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/10 items-center justify-center">
-                <Text style={{ fontSize: 28 }}>{nextReward.emoji}</Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-white text-sm font-bold">{nextReward.label}</Text>
-                <Text className="text-white/55 text-xs">
-                  Nog {nextReward.points - points} punten te gaan
-                </Text>
-                <View className="mt-2 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                  <View
-                    className="h-full bg-primary-soft rounded-full"
-                    style={{ width: `${Math.round(rewardProgress * 100)}%` }}
-                  />
-                </View>
+          <View className="flex-row items-center gap-4">
+            <View className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/10 items-center justify-center">
+              <Text style={{ fontSize: 28 }}>{nextMilestone.emoji}</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-sm font-bold">{nextMilestone.label}</Text>
+              <Text className="text-white/55 text-xs">{nextMilestone.sub}</Text>
+              <View className="mt-2 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                <View
+                  className="h-full bg-primary-soft rounded-full"
+                  style={{ width: `${Math.round(rewardProgress * 100)}%` }}
+                />
               </View>
             </View>
-          ) : (
-            <Text className="text-white/80 text-sm">
-              Alle beloningen zijn vrijgespeeld 🌳 — jij bent al een hele boom op zich.
-            </Text>
-          )}
+          </View>
         </GlassCard>
       </ScrollView>
     </View>
