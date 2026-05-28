@@ -1,6 +1,6 @@
 // powerplant/app/onboarding.tsx
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Chip } from "../components/Chip";
 import { DuskBackground } from "../components/DuskBackground";
@@ -73,18 +73,21 @@ export default function Onboarding() {
   const bumpMin = useUserStore((s) => s.bumpMin);
   const finish = useUserStore((s) => s.finishOnboarding);
 
-  // Last-resort safety net: if this screen ever mounts while the user is
+  // Last-resort safety net: if this screen mounts while the user is
   // already onboarded (deep link, route restoration, persist race…), get
-  // out immediately so the user doesn't have to re-do onboarding.
-  const alreadyOnboarded =
+  // out immediately. Snapshot the value at mount-time only — otherwise
+  // typing a name or toggling a goal during onboarding would flip the
+  // flag mid-session and kick the new user back to home.
+  const initiallyOnboardedRef = useRef(
     hasOnboarded ||
-    name.length > 0 ||
-    goals.length > 0 ||
-    points > 0 ||
-    bomenGeplant > 0;
+      name.length > 0 ||
+      goals.length > 0 ||
+      points > 0 ||
+      bomenGeplant > 0,
+  );
   useEffect(() => {
-    if (alreadyOnboarded) router.replace("/(tabs)/home");
-  }, [alreadyOnboarded]);
+    if (initiallyOnboardedRef.current) router.replace("/(tabs)/home");
+  }, []);
 
   const done = () => {
     finish();
