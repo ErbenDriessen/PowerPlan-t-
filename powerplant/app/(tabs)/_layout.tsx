@@ -59,6 +59,16 @@ const TAB_META: Record<
       />
     ),
   },
+  buddy: {
+    label: "Buddy",
+    render: (focused, color) => (
+      <Ionicons
+        name={focused ? "people" : "people-outline"}
+        size={ICON_SIZE}
+        color={color}
+      />
+    ),
+  },
   rust: {
     label: "Rust",
     render: (focused, color) => (
@@ -162,6 +172,7 @@ export default function TabsLayout() {
       <MaterialTopTabs.Screen name="home" />
       <MaterialTopTabs.Screen name="planning" />
       <MaterialTopTabs.Screen name="tree" />
+      <MaterialTopTabs.Screen name="buddy" />
       <MaterialTopTabs.Screen name="rust" />
       <MaterialTopTabs.Screen name="settings" />
     </MaterialTopTabs>

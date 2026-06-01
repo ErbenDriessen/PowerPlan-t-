@@ -18,15 +18,15 @@ export default function Rust() {
   const tiles: Tile[] = [
     {
       emoji: "🌬️",
-      title: "2 minuten ademhaling",
-      sub: "4 — 7 — 8 ritme",
+      title: "Ademhaling 4-7-8",
+      sub: "4 rondes · ruim 1 minuut",
       variant: "default",
       onPress: () => router.push("/breathing" as any),
     },
     {
       emoji: "🧘",
       title: "Korte meditatie",
-      sub: "5 of 10 min",
+      sub: "3, 5 of 10 min",
       variant: "warm",
       onPress: () => router.push("/meditation" as any),
     },
