@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  sentRequests     Buddy[]   @relation("Requester")
+  receivedRequests Buddy[]   @relation("Receiver")
+  sentMessages     Message[]
+}
+
+model Buddy {
+  id          Int         @id @default(autoincrement())
+  requesterId Int
+  receiverId  Int
+  status      BuddyStatus @default(pending)
+  createdAt   DateTime    @default(now())
+
+  requester User      @relation("Requester", fields: [requesterId], references: [id])
+  receiver  User      @relation("Receiver", fields: [receiverId], references: [id])
+  messages  Message[]
+
+  @@unique([requesterId, receiverId])
+}
+
+enum BuddyStatus {
+  pending
+  accepted
+  blocked
+}
+
+model Message {
+  id       Int      @id @default(autoincrement())
+  buddyId  Int
+  senderId Int
+  body     String
+  type     String   @default("text")
+  sentAt   DateTime @default(now())
+
+  buddy  Buddy @relation(fields: [buddyId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id])
+}
