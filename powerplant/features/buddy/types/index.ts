@@ -1,5 +1,6 @@
+// Supabase gebruikt UUID's als sleutels, dus alle id's zijn strings.
 export type User = {
-  id: number;
+  id: string;
   username: string;
   email?: string;
   createdAt: string;
@@ -8,11 +9,11 @@ export type User = {
 export type BuddyStatus = 'pending' | 'accepted' | 'blocked';
 
 export type Buddy = {
-  id: number;
+  id: string;
   status: BuddyStatus;
   createdAt: string;
   other: {
-    id: number;
+    id: string;
     username: string;
     createdAt: string;
   };
@@ -20,9 +21,9 @@ export type Buddy = {
 };
 
 export type Message = {
-  id: number | string;
-  buddyId: number;
-  senderId: number;
+  id: string;
+  buddyId: string;
+  senderId: string;
   body: string;
   type: string;
   sentAt: string;
