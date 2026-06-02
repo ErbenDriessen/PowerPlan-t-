@@ -47,8 +47,8 @@ export default function ChatScreen() {
 
     const optimistic: Message = {
       id: `pending-${Date.now()}`,
-      buddyId: parseInt(buddyId, 10),
-      senderId: currentUser?.id ?? 0,
+      buddyId,
+      senderId: currentUser?.id ?? "",
       body: text,
       type: "text",
       sentAt: new Date().toISOString(),
@@ -64,7 +64,7 @@ export default function ChatScreen() {
     }
   }
 
-  const myId = currentUser?.id ?? 0;
+  const myId = currentUser?.id ?? "";
   const insets = useSafeAreaInsets();
 
   return (
