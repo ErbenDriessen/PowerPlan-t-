@@ -1,2 +1,2 @@
 // Auto-gegenereerd door set-ip.js — niet handmatig aanpassen
-export const API_BASE = 'http://145.138.68.44:3000';
+export const API_BASE = 'http://10.105.36.2:3000';
