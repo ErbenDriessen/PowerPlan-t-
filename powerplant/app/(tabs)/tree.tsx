@@ -1,12 +1,14 @@
 // powerplant/app/(tabs)/tree.tsx
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { Forest } from "../../components/Forest";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
+import { WindowControls } from "../../components/WindowControls";
 import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
+import { nowMinutes } from "../../lib/skyScene";
 import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
 import { usePrefsStore } from "../../stores/usePrefsStore";
 import {
@@ -47,8 +49,21 @@ export default function MijnBoom() {
   const streak = useUserStore((s) => s.streak);
   const goals = useUserStore((s) => s.goals);
   const history = useDailyProgressStore((s) => s.history);
-  const tijdOverride = usePrefsStore((s) => s.tijdOverride);
+  const showWindowControls = usePrefsStore((s) => s.showWindowControls);
+  const windowOverrideMinutes = usePrefsStore((s) => s.windowOverrideMinutes);
+  const setWindowOverrideMinutes = usePrefsStore((s) => s.setWindowOverrideMinutes);
   const { width: screenW } = useWindowDimensions();
+
+  // Live device clock for the window scene; ticks once a minute (the
+  // atmosphere changes gradually, so that is smooth enough and free).
+  const [liveMinutes, setLiveMinutes] = useState(nowMinutes);
+  useEffect(() => {
+    const id = setInterval(() => setLiveMinutes(nowMinutes()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Manual override (slider/play) wins; otherwise follow the live clock.
+  const sceneMinutes = windowOverrideMinutes ?? liveMinutes;
 
   const today = todayKey();
   const weekNumber = getISOWeek(new Date());
@@ -121,9 +136,18 @@ export default function MijnBoom() {
             width={screenW - 40}
             mainSpecies={currentSpecies}
             mainStage={treeStage}
-            timeOfDay={tijdOverride === "auto" ? undefined : tijdOverride}
+            minutes={sceneMinutes}
           />
         </View>
+
+        {showWindowControls && (
+          <WindowControls
+            sceneMinutes={sceneMinutes}
+            isAuto={windowOverrideMinutes === null}
+            onScrub={setWindowOverrideMinutes}
+            onAuto={() => setWindowOverrideMinutes(null)}
+          />
+        )}
         <Text className="text-center text-white/55 text-xs mb-4">
           {bomenGeplant === 0
             ? "Nog geen bomen geplant — laat deze eerst volgroeien."
