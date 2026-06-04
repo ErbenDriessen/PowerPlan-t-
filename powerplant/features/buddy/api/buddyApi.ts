@@ -19,8 +19,8 @@ async function currentUserId(): Promise<string> {
 type ProfileRow = { id: string; username: string; created_at: string };
 
 type MessageRow = {
-  id: string;
-  buddy_id: string;
+  id: number;
+  buddy_id: number;
   sender_id: string;
   body: string;
   type: string;
@@ -151,16 +151,41 @@ export async function deleteMe(): Promise<void> {
   await supabase.auth.signOut();
 }
 
-export async function searchUsers(q: string): Promise<{ id: string; username: string }[]> {
+export async function getMyGoals(): Promise<string[]> {
+  const { data: auth, error } = await supabase.auth.getUser();
+  if (error || !auth.user) throw new Error("Je bent niet ingelogd");
+  const { data, error: pErr } = await supabase
+    .from("profiles")
+    .select("goals")
+    .eq("id", auth.user.id)
+    .single<{ goals: string[] }>();
+  if (pErr) throw new Error(friendly(pErr.message));
+  return data?.goals ?? [];
+}
+
+export async function syncGoals(goals: string[]): Promise<void> {
+  const me = await currentUserId();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ goals })
+    .eq("id", me);
+  if (error) throw new Error(friendly(error.message));
+}
+
+export async function findMatchingUsers(
+  myGoals: string[],
+): Promise<{ id: string; username: string; goals: string[] }[]> {
+  if (myGoals.length === 0) return [];
   const me = await currentUserId();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username")
-    .ilike("username", `%${q}%`)
+    .select("id, username, goals")
+    .overlaps("goals", myGoals)
     .neq("id", me)
-    .limit(20);
+    .order("created_at", { ascending: false })
+    .limit(50);
   if (error) throw new Error(friendly(error.message));
-  return data ?? [];
+  return (data ?? []) as { id: string; username: string; goals: string[] }[];
 }
 
 // --- Buddies ---------------------------------------------------------------
@@ -174,7 +199,7 @@ const BUDDY_SELECT = `
 `;
 
 type BuddyRow = {
-  id: string;
+  id: number;
   status: Buddy["status"];
   created_at: string;
   requester_id: string;
@@ -222,7 +247,7 @@ export async function sendBuddyRequest(receiverId: string): Promise<Buddy> {
 }
 
 export async function updateBuddyStatus(
-  buddyId: string,
+  buddyId: number,
   status: "accepted" | "blocked",
 ): Promise<Buddy> {
   const me = await currentUserId();
@@ -238,7 +263,7 @@ export async function updateBuddyStatus(
 
 // --- Messages --------------------------------------------------------------
 
-export async function getMessages(buddyId: string, since?: string): Promise<Message[]> {
+export async function getMessages(buddyId: number, since?: string): Promise<Message[]> {
   let query = supabase
     .from("messages")
     .select("id, buddy_id, sender_id, body, type, sent_at")
@@ -250,7 +275,7 @@ export async function getMessages(buddyId: string, since?: string): Promise<Mess
   return ((data ?? []) as MessageRow[]).map(mapMessage);
 }
 
-export async function sendMessage(buddyId: string, body: string, type = "text"): Promise<Message> {
+export async function sendMessage(buddyId: number, body: string, type = "text"): Promise<Message> {
   const me = await currentUserId();
   const { data, error } = await supabase
     .from("messages")

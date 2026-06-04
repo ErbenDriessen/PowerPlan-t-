@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
+  ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,48 +14,59 @@ import * as buddyApi from "../../features/buddy/api/buddyApi";
 import { loadCachedMessages, cacheMessages } from "../../features/buddy/storage/buddyStorage";
 import type { Message } from "../../features/buddy/types";
 
+const PRESET_MESSAGES = [
+  "Je doet het super! 💪",
+  "Hoe gaat het vandaag?",
+  "Ik heb mijn doel gehaald! 🌱",
+  "Ga zo door!",
+  "Ik struggle even...",
+  "We doen het samen!",
+  "Heb je al bewogen vandaag?",
+  "Goed bezig!",
+  "Ik ga even een pauze nemen",
+  "Vandaag was moeilijk",
+  "Check! Doel gedaan ✓",
+  "Morgen beter!",
+];
+
 export default function ChatScreen() {
-  const { buddyId, username } = useLocalSearchParams<{ buddyId: string; username: string }>();
+  const { buddyId: buddyIdParam, username } = useLocalSearchParams<{ buddyId: string; username: string }>();
+  const buddyId = Number(buddyIdParam);
   const currentUser = useBuddyStore((s) => s.currentUser);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
-    loadCachedMessages(buddyId).then((cached) => {
+    loadCachedMessages(buddyIdParam).then((cached) => {
       if (cached.length > 0) setMessages(cached);
     });
     sync();
     const id = setInterval(sync, 10_000);
     return () => clearInterval(id);
-  }, [buddyId]);
+  }, [buddyIdParam]);
 
   async function sync() {
     try {
       const fetched = await buddyApi.getMessages(buddyId);
       setMessages(fetched);
-      await cacheMessages(buddyId, fetched);
+      await cacheMessages(buddyIdParam, fetched);
     } catch { /* offline — toon gecachte berichten */ }
   }
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-
+  async function handleSend(text: string) {
     const optimistic: Message = {
-      id: `pending-${Date.now()}`,
+      id: -Date.now(),
       buddyId,
       senderId: currentUser?.id ?? "",
       body: text,
-      type: "text",
+      type: "preset",
       sentAt: new Date().toISOString(),
       pending: true,
     };
     setMessages((prev) => [...prev, optimistic]);
 
     try {
-      const sent = await buddyApi.sendMessage(buddyId, text);
+      const sent = await buddyApi.sendMessage(buddyId, text, "preset");
       setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? sent : m)));
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
@@ -71,7 +80,7 @@ export default function ChatScreen() {
     <View className="flex-1">
       <DuskBackground />
 
-      {/* Header — begint onder de systeembalk */}
+      {/* Header */}
       <View className="px-5 pb-3 flex-row items-center gap-3" style={{ paddingTop: insets.top + 8 }}>
         <Pressable onPress={() => router.back()} className="pr-2 py-1">
           <Text className="text-white text-xl">‹</Text>
@@ -84,11 +93,7 @@ export default function ChatScreen() {
         <Text className="text-white font-extrabold text-base">{username}</Text>
       </View>
 
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
+      <View className="flex-1">
         <FlatList
           ref={listRef}
           data={messages}
@@ -125,29 +130,30 @@ export default function ChatScreen() {
           }}
         />
 
-        {/* Invoerbalk */}
-        <View
-          className="flex-row items-center gap-2 px-4 py-3 border-t border-white/10"
-          style={{ paddingBottom: insets.bottom + 12 }}
+        {/* Preset berichten */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="border-t border-white/10 flex-grow-0"
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            paddingBottom: insets.bottom + 12,
+            gap: 8,
+            flexDirection: "row",
+          }}
         >
-          <TextInput
-            className="flex-1 text-white text-sm bg-white/10 rounded-2xl px-4 py-2.5"
-            placeholder="Schrijf een berichtje..."
-            placeholderTextColor="rgba(255,255,255,0.35)"
-            value={input}
-            onChangeText={setInput}
-            returnKeyType="send"
-            onSubmitEditing={handleSend}
-            blurOnSubmit={false}
-          />
-          <Pressable
-            onPress={handleSend}
-            className="w-10 h-10 rounded-full bg-primary items-center justify-center"
-          >
-            <Text className="text-white font-bold text-base">↑</Text>
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+          {PRESET_MESSAGES.map((msg) => (
+            <Pressable
+              key={msg}
+              onPress={() => handleSend(msg)}
+              className="bg-white/15 rounded-2xl px-4 py-2.5 active:opacity-60"
+            >
+              <Text className="text-white text-sm">{msg}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 }
