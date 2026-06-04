@@ -8,6 +8,7 @@ import { GlassCard } from "../components/GlassCard";
 import { Mascot } from "../components/Mascot";
 import { PrimaryButton } from "../components/buttons";
 import { ProgressRing } from "../components/ProgressRing";
+import { BackButton } from "../components/BackButton";
 
 type Phase = "setup" | "running" | "done";
 type Ambient = "stilte" | "bos" | "regen";
@@ -47,9 +48,7 @@ export default function Meditation() {
         <DuskBackground variant="deep" />
         <FakeStatusBar />
         <View className="px-6 pt-2 flex-row items-center justify-between mb-3">
-          <Pressable onPress={() => router.back()}>
-            <Text className="text-white/70 font-bold text-sm">← Terug</Text>
-          </Pressable>
+          <BackButton label="Terug" />
           <Text className="text-white text-base font-semibold">Korte meditatie</Text>
           <View style={{ width: 36 }} />
         </View>
@@ -113,6 +112,10 @@ export default function Meditation() {
                 );
               })}
             </View>
+
+            <Text className="text-white/40 text-[11px] mt-3">
+              🔈 Geluiden volgen later — kies vast de sfeer die bij je past.
+            </Text>
           </GlassCard>
 
           <PrimaryButton
@@ -154,8 +157,8 @@ export default function Meditation() {
         <Text className="text-white/60 text-sm italic text-center px-6">
           Laat je schouders zakken. Voel je adem komen en gaan.
         </Text>
-        <Pressable onPress={() => router.back()}>
-          <Text className="text-white/40 text-[11px] font-bold">Beëindigen</Text>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text className="text-white/45 text-xs font-bold">Stoppen</Text>
         </Pressable>
       </View>
     );

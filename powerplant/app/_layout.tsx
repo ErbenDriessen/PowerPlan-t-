@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { PrestigePopup } from "../components/PrestigePopup";
 import { useAppFonts } from "../hooks/useAppFonts";
 import { todayKey } from "../lib/dates";
 import { useUserStore } from "../stores/useUserStore";
@@ -63,6 +64,9 @@ export default function RootLayout() {
         <Stack.Screen name="meditation" options={{ presentation: "modal" }} />
         <Stack.Screen name="breathing" options={{ presentation: "modal" }} />
       </Stack>
+      {/* Globale prestige-popup — verschijnt over elk scherm zodra een boom
+          volgroeid is (behalve tijdens focus/meditatie/ademhaling). */}
+      <PrestigePopup />
     </GestureHandlerRootView>
   );
 }

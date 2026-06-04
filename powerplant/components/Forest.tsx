@@ -3,10 +3,12 @@
 // "Looking out a window" scene for the Mijn boom screen. The user's
 // actively-growing tree sits in a terracotta pot on the windowsill,
 // while previously-prestiged trees populate the landscape outside.
-// Translated 1:1 from the prototypes "forest window sil design 1.html"
-// and "Forest Window with landscape.html" — wooden frame, sill, sky +
-// sun/moon + mountains + hills + grass-foreground, with day/dusk/night
-// variants picked from the device clock.
+//
+// The atmosphere (sky, sun/moon, mountains, hills, grass, fog, stars,
+// indoor light) is fully dynamic: it is driven by a single time value in
+// minutes via lib/skyScene.ts. The scene interpolates continuously through
+// the day and the sun/moon arc across the sky. The wooden frame, sill and
+// pot are time-independent.
 
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo } from "react";
@@ -26,10 +28,9 @@ import {
   getTreeSprite,
   SpriteRect,
 } from "../lib/plantSprites";
+import { Celestial, clamp01, Scene, sceneAt } from "../lib/skyScene";
 import { PlantedTree } from "../stores/useUserStore";
 import { PlantSprite } from "./PlantSprite";
-
-export type TimeOfDay = "day" | "dusk" | "night";
 
 // Design coordinate space — same as the HTML mockups. All internal
 // positions/sizes are in these units and scaled by (width / DESIGN_W).
@@ -87,126 +88,116 @@ const PROGRESSION = [
 // reads as a real plant on a phone screen.
 const POT_TREE_SCALE = [2.0, 1.7, 1.4, 1.1, 1.0] as const;
 
-// ───────── Helpers ─────────
-function pickTimeOfDay(): TimeOfDay {
-  const h = new Date().getHours();
-  if (h >= 6 && h < 17) return "day";
-  if (h >= 17 && h < 20) return "dusk";
-  return "night";
-}
-
 function rectAt(spec: number): SpriteRect {
   return getMatureTreeSprite(spec);
 }
 
 // ───────── Sub-components ─────────
 
-function SkyGradient({ tod, w, h }: { tod: TimeOfDay; w: number; h: number }) {
-  const COLORS: Record<TimeOfDay, string[]> = {
-    day: ["#8FCBE6", "#B3D7E8", "#D5E1D2", "#A8B597", "#7A8F5F", "#5C7B40", "#4B6932", "#618845"],
-    dusk: ["#F4A968", "#F6B584", "#ED9C76", "#BD8C84", "#87766E", "#5C6B58", "#455942", "#3D5938"],
-    night: ["#1B2D52", "#2A3F6B", "#314765", "#2D3C53", "#243349", "#1F2D40", "#1A2533", "#1C2E27"],
-  };
+function SkyGradient({ colors, w, h }: { colors: string[]; w: number; h: number }) {
   const LOCATIONS: [number, number, ...number[]] = [
     0, 0.16, 0.32, 0.46, 0.6, 0.75, 0.9, 1,
   ];
   return (
     <LinearGradient
-      colors={COLORS[tod] as any}
+      colors={colors as any}
       locations={LOCATIONS}
       style={{ width: w, height: h }}
     />
   );
 }
 
-function SunOrMoon({ tod, scale }: { tod: TimeOfDay; scale: number }) {
-  if (tod === "night") {
-    // Moon — small white disc with two crater spots
-    const size = 50 * scale;
-    return (
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: 38 * scale,
-          right: 44 * scale,
-          width: size,
-          height: size,
-        }}
-      >
-        <Svg width={size} height={size} viewBox="0 0 50 50">
-          <Defs>
-            <RadialGradient id="moon" cx="35%" cy="35%" r="65%">
-              <Stop offset="0" stopColor="#FFFFFF" />
-              <Stop offset="0.4" stopColor="#F5F2EA" />
-              <Stop offset="0.75" stopColor="#DAD5C5" />
-              <Stop offset="1" stopColor="#B5AE9A" />
-            </RadialGradient>
-          </Defs>
-          <Circle cx="25" cy="25" r="25" fill="url(#moon)" />
-          <Circle cx="17" cy="14" r="5.5" fill="rgba(180,175,160,0.4)" />
-          <Circle cx="30" cy="28" r="3.5" fill="rgba(180,175,160,0.35)" />
-        </Svg>
-      </View>
-    );
-  }
-  if (tod === "dusk") {
-    // Low warm sun
-    const size = 64 * scale;
-    return (
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: 110 * scale,
-          right: 50 * scale,
-          width: size,
-          height: size,
-        }}
-      >
-        <Svg width={size} height={size} viewBox="0 0 64 64">
-          <Defs>
-            <RadialGradient id="sun-dusk" cx="35%" cy="35%" r="65%">
-              <Stop offset="0" stopColor="#FFE8C8" />
-              <Stop offset="0.3" stopColor="#FFB876" />
-              <Stop offset="0.65" stopColor="#E97D45" />
-              <Stop offset="1" stopColor="#B85628" />
-            </RadialGradient>
-          </Defs>
-          <Circle cx="32" cy="32" r="32" fill="url(#sun-dusk)" />
-        </Svg>
-      </View>
-    );
-  }
-  // Day sun
-  const size = 58 * scale;
+// Sun or moon, positioned on its arc, with a soft radial glow behind it.
+// Sits BEHIND the mountains so it rises/sets behind the landscape.
+function CelestialBody({ c, scale }: { c: Celestial; scale: number }) {
+  if (c.opacity <= 0.001) return null;
+  const isSun = c.kind === "sun";
+  const size = isSun ? 58 : 46;
+  const glow = isSun ? 200 : 150;
+  const cx = c.x * scale;
+  const cy = c.y * scale;
+  const sizePx = size * scale;
+  const glowPx = glow * scale;
+  // react-native-svg accepts Stop elements (or an array of them) as gradient
+  // children, but NOT a Fragment — so build the stop lists as arrays.
+  const glowStops = isSun
+    ? [
+        <Stop key="0" offset="0" stopColor="rgb(255,232,148)" stopOpacity="0.45" />,
+        <Stop key="1" offset="0.35" stopColor="rgb(255,220,120)" stopOpacity="0.18" />,
+        <Stop key="2" offset="0.7" stopColor="rgb(255,220,120)" stopOpacity="0" />,
+      ]
+    : [
+        <Stop key="0" offset="0" stopColor="rgb(220,225,240)" stopOpacity="0.3" />,
+        <Stop key="1" offset="0.4" stopColor="rgb(180,190,220)" stopOpacity="0.12" />,
+        <Stop key="2" offset="0.72" stopColor="rgb(180,190,220)" stopOpacity="0" />,
+      ];
+  const discStops = isSun
+    ? [
+        <Stop key="0" offset="0" stopColor="#FFFAE2" />,
+        <Stop key="1" offset="0.35" stopColor="#FFE894" />,
+        <Stop key="2" offset="0.7" stopColor="#F5C846" />,
+        <Stop key="3" offset="1" stopColor="#DB9F1F" />,
+      ]
+    : [
+        <Stop key="0" offset="0" stopColor="#FFFFFF" />,
+        <Stop key="1" offset="0.4" stopColor="#F5F2EA" />,
+        <Stop key="2" offset="0.75" stopColor="#DAD5C5" />,
+        <Stop key="3" offset="1" stopColor="#B5AE9A" />,
+      ];
   return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        top: 42 * scale,
-        right: 36 * scale,
-        width: size,
-        height: size,
-      }}
-    >
-      <Svg width={size} height={size} viewBox="0 0 58 58">
-        <Defs>
-          <RadialGradient id="sun-day" cx="35%" cy="35%" r="65%">
-            <Stop offset="0" stopColor="#FFFAE2" />
-            <Stop offset="0.35" stopColor="#FFE894" />
-            <Stop offset="0.7" stopColor="#F5C846" />
-            <Stop offset="1" stopColor="#DB9F1F" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx="29" cy="29" r="29" fill="url(#sun-day)" />
-      </Svg>
-    </View>
+    <>
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: cx - glowPx / 2,
+          top: cy - glowPx / 2,
+          width: glowPx,
+          height: glowPx,
+          opacity: c.opacity * (isSun ? 0.8 : 0.5),
+        }}
+      >
+        <Svg width={glowPx} height={glowPx} viewBox="0 0 200 200">
+          <Defs>
+            <RadialGradient id="celGlow" cx="50%" cy="50%" r="50%">
+              {glowStops}
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="200" height="200" fill="url(#celGlow)" />
+        </Svg>
+      </View>
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: cx - sizePx / 2,
+          top: cy - sizePx / 2,
+          width: sizePx,
+          height: sizePx,
+          opacity: c.opacity,
+        }}
+      >
+        <Svg width={sizePx} height={sizePx} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id="celDisc" cx="35%" cy="35%" r="65%">
+              {discStops}
+            </RadialGradient>
+          </Defs>
+          <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="url(#celDisc)" />
+          {!isSun && (
+            <>
+              <Circle cx={size * 0.34} cy={size * 0.28} r={size * 0.11} fill="rgba(180,175,160,0.4)" />
+              <Circle cx={size * 0.6} cy={size * 0.56} r={size * 0.07} fill="rgba(180,175,160,0.35)" />
+            </>
+          )}
+        </Svg>
+      </View>
+    </>
   );
 }
 
-function Stars({ scale }: { scale: number }) {
+function Stars({ scale, opacity }: { scale: number; opacity: number }) {
+  if (opacity <= 0.001) return null;
   const positions = [
     { left: 30, top: 40 },
     { left: 110, top: 30 },
@@ -218,11 +209,10 @@ function Stars({ scale }: { scale: number }) {
     { left: 200, top: 160 },
   ];
   return (
-    <>
+    <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity }}>
       {positions.map((p, i) => (
         <View
           key={i}
-          pointerEvents="none"
           style={{
             position: "absolute",
             left: p.left * scale,
@@ -231,78 +221,71 @@ function Stars({ scale }: { scale: number }) {
             height: 2 * scale,
             borderRadius: scale,
             backgroundColor: "#FFFEF5",
-            opacity: 0.7,
           }}
         />
       ))}
-    </>
+    </View>
   );
 }
 
-function Mountains({ tod, w, scale }: { tod: TimeOfDay; w: number; scale: number }) {
-  const colors = {
-    day: { back: "#7A8678", front: "#6A7468" },
-    dusk: { back: "#7A6470", front: "#5C4D5A" },
-    night: { back: "#1B2540", front: "#131C2E" },
-  }[tod];
-  const backOpacity = tod === "night" ? 0.85 : tod === "dusk" ? 0.6 : 0.55;
-  const frontOpacity = tod === "night" ? 0.7 : tod === "dusk" ? 0.5 : 0.4;
+function Mountains({
+  colors,
+  op,
+  w,
+  scale,
+}: {
+  colors: [string, string];
+  op: [number, number];
+  w: number;
+  scale: number;
+}) {
   return (
     <View
       pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 132 * scale,
-        height: 56 * scale,
-      }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 124 * scale, height: 56 * scale }}
     >
       <Svg width={w} height={56 * scale} viewBox="0 0 350 56" preserveAspectRatio="none">
         <Path
           d="M0 56 L20 22 L55 30 L90 8 L130 22 L170 4 L210 18 L245 12 L280 26 L315 10 L345 22 L350 30 L350 56 Z"
-          fill={colors.back}
-          opacity={backOpacity}
+          fill={colors[0]}
+          opacity={op[0]}
         />
         <Path
           d="M30 56 L60 36 L95 42 L140 25 L185 38 L230 30 L270 40 L310 28 L350 38 L350 56 Z"
-          fill={colors.front}
-          opacity={frontOpacity}
+          fill={colors[1]}
+          opacity={op[1]}
         />
       </Svg>
     </View>
   );
 }
 
-function Hills({ tod, w, scale }: { tod: TimeOfDay; w: number; scale: number }) {
-  const colors = {
-    day: { back: "#5A7A48", front: "#446036" },
-    dusk: { back: "#5A4D4E", front: "#3D3636" },
-    night: { back: "#0F1A22", front: "#0A141A" },
-  }[tod];
-  const backOpacity = tod === "night" ? 0.85 : tod === "dusk" ? 0.75 : 0.7;
-  const frontOpacity = tod === "night" ? 0.75 : tod === "dusk" ? 0.6 : 0.5;
+function Hills({
+  colors,
+  op,
+  w,
+  scale,
+}: {
+  colors: [string, string];
+  op: [number, number];
+  w: number;
+  scale: number;
+}) {
   return (
     <View
       pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 72 * scale,
-        height: 56 * scale,
-      }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 72 * scale, height: 56 * scale }}
     >
       <Svg width={w} height={56 * scale} viewBox="0 0 350 56" preserveAspectRatio="none">
         <Path
           d="M0 56 Q55 22 110 32 Q170 14 230 28 Q290 16 350 24 L350 56 Z"
-          fill={colors.back}
-          opacity={backOpacity}
+          fill={colors[0]}
+          opacity={op[0]}
         />
         <Path
           d="M0 56 Q70 40 140 44 Q210 32 280 42 Q335 36 350 40 L350 56 Z"
-          fill={colors.front}
-          opacity={frontOpacity}
+          fill={colors[1]}
+          opacity={op[1]}
         />
       </Svg>
     </View>
@@ -310,14 +293,11 @@ function Hills({ tod, w, scale }: { tod: TimeOfDay; w: number; scale: number }) 
 }
 
 /**
- * Time-of-day tint that sits ON TOP of the forest layers but BELOW
- * the grass-foreground. Pushes the forest into the scene's atmospheric
- * mood: warm sepia at dusk, deep silhouette-blue at night, none at day.
+ * Time-of-day tint that sits ON TOP of the forest layers but BELOW the
+ * grass-foreground. Pushes the forest into the scene's atmospheric mood:
+ * warm at dusk, deep silhouette-blue at night, invisible (alpha 0) at day.
  */
-function ForestTint({ tod, scale }: { tod: TimeOfDay; scale: number }) {
-  if (tod === "day") return null;
-  const color =
-    tod === "night" ? "rgba(8, 18, 40, 0.55)" : "rgba(160, 70, 30, 0.18)";
+function ForestTint({ color, scale }: { color: string; scale: number }) {
   return (
     <View
       pointerEvents="none"
@@ -333,41 +313,33 @@ function ForestTint({ tod, scale }: { tod: TimeOfDay; scale: number }) {
   );
 }
 
-function GrassForeground({ tod, scale }: { tod: TimeOfDay; scale: number }) {
-  const colors = {
-    day: ["rgba(70,110,50,0)", "rgba(70,110,50,0.4)", "rgba(85,130,60,0.6)"],
-    dusk: ["rgba(60,80,55,0)", "rgba(60,80,55,0.5)", "rgba(50,75,45,0.7)"],
-    night: ["rgba(30,55,40,0)", "rgba(30,55,40,0.55)", "rgba(25,45,32,0.75)"],
-  }[tod];
+function GrassForeground({ colors, scale }: { colors: [string, string, string]; scale: number }) {
   return (
     <LinearGradient
       pointerEvents="none"
       colors={colors as any}
       locations={[0, 0.4, 1]}
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 18 * scale,
-      }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 18 * scale }}
     />
   );
 }
 
 // Per-layer scale boost so the depth spread is unambiguous: front
 // trees are noticeably larger than the back ones, exaggerating the
-// "this is far away" feel via size alone. Compress shifts positions
-// inward to keep boosted L3 trees inside the scene window.
-const LAYER_BOOST: Record<Layer, number> = {
-  1: 1.0, // back — keep mockup size
-  2: 1.25, // mid
-  3: 1.6, // front — biggest jump
-};
+// "this is far away" feel via size alone.
+const LAYER_BOOST: Record<Layer, number> = { 1: 1.0, 2: 1.25, 3: 1.6 };
 const POS_COMPRESS = 0.9;
 
-function ForestSprite({ slot, scale }: { slot: Slot; scale: number }) {
-  const sprite = rectAt(slot.species);
+function ForestSprite({
+  slot,
+  species,
+  scale,
+}: {
+  slot: Slot;
+  species: number;
+  scale: number;
+}) {
+  const sprite = rectAt(species);
   const heightPx = sprite.h * slot.scale * LAYER_BOOST[slot.layer] * scale;
   return (
     <View
@@ -383,87 +355,69 @@ function ForestSprite({ slot, scale }: { slot: Slot; scale: number }) {
 }
 
 function Fog({
-  variant,
-  tod,
+  colors,
   scale,
 }: {
-  variant: 1 | 2;
-  tod: TimeOfDay;
+  colors: [string, string, string];
   scale: number;
 }) {
-  // (color, top alpha, mid alpha)
-  const stops: Record<TimeOfDay, Record<1 | 2, [string, string, string]>> = {
-    day: {
-      1: ["rgba(15,28,22,0)", "rgba(15,28,22,0.18)", "rgba(15,28,22,0.26)"],
-      2: ["rgba(15,28,22,0)", "rgba(15,28,22,0.13)", "rgba(15,28,22,0.20)"],
-    },
-    dusk: {
-      1: ["rgba(40,30,28,0)", "rgba(40,30,28,0.20)", "rgba(40,30,28,0.30)"],
-      2: ["rgba(40,30,28,0)", "rgba(40,30,28,0.14)", "rgba(40,30,28,0.22)"],
-    },
-    night: {
-      1: ["rgba(10,18,28,0)", "rgba(10,18,28,0.28)", "rgba(10,18,28,0.40)"],
-      2: ["rgba(10,18,28,0)", "rgba(10,18,28,0.20)", "rgba(10,18,28,0.30)"],
-    },
-  };
-  const [top, mid, bot] = stops[tod][variant];
   return (
     <LinearGradient
       pointerEvents="none"
-      colors={[top, mid, bot] as any}
+      colors={colors as any}
       locations={[0, 0.2, 1]}
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 95 * scale,
-      }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 95 * scale }}
     />
   );
 }
 
 function ForestTrees({
   trees,
-  tod,
+  fog1,
+  fog2,
   scale,
 }: {
   trees: PlantedTree[];
-  tod: TimeOfDay;
+  fog1: [string, string, string];
+  fog2: [string, string, string];
   scale: number;
 }) {
   const visibleCount = Math.min(trees.length, PROGRESSION.length);
-  const visibleIds = new Set<number>(PROGRESSION.slice(0, visibleCount));
-  const visible = SLOTS.filter((s) => visibleIds.has(s.id));
 
-  const layered: Record<Layer, Slot[]> = { 1: [], 2: [], 3: [] };
-  visible.forEach((s) => layered[s.layer].push(s));
+  // Koppel elke geplante boom aan z'n slot: PROGRESSION is de volgorde
+  // waarin slots vollopen, dus boom i hoort bij slot PROGRESSION[i]. We
+  // tekenen met de SOORT van de boom (door de gebruiker gekozen) op de
+  // POSITIE/SCHAAL van de slot.
+  type Placed = { slot: Slot; species: number };
+  const placed: Placed[] = [];
+  for (let i = 0; i < visibleCount; i++) {
+    const slot = SLOTS.find((s) => s.id === PROGRESSION[i]);
+    if (slot) placed.push({ slot, species: trees[i].species });
+  }
+
+  const layered: Record<Layer, Placed[]> = { 1: [], 2: [], 3: [] };
+  placed.forEach((p) => layered[p.slot.layer].push(p));
   // Tallest renders last within each layer for clean z-order.
   ([1, 2, 3] as Layer[]).forEach((layer) => {
     layered[layer].sort((a, b) => {
-      const ha = rectAt(a.species).h * a.scale;
-      const hb = rectAt(b.species).h * b.scale;
+      const ha = rectAt(a.species).h * a.slot.scale;
+      const hb = rectAt(b.species).h * b.slot.scale;
       return ha - hb;
     });
   });
 
-  // Trees get a subtle warmth/coolness via overlay (we can't easily
-  // apply css filter brightness/saturate in RN); skip per-tree filter
-  // for now since fog density already conveys time-of-day mood.
   return (
     <>
-      {layered[1].map((slot) => (
-        <ForestSprite key={`l1-${slot.id}`} slot={slot} scale={scale} />
+      {layered[1].map((p) => (
+        <ForestSprite key={`l1-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
-      {visible.length > 0 && <Fog variant={1} tod={tod} scale={scale} />}
-      {layered[2].map((slot) => (
-        <ForestSprite key={`l2-${slot.id}`} slot={slot} scale={scale} />
+      {placed.length > 0 && <Fog colors={fog1} scale={scale} />}
+      {layered[2].map((p) => (
+        <ForestSprite key={`l2-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
-      {(layered[2].length > 0 || layered[3].length > 0) && (
-        <Fog variant={2} tod={tod} scale={scale} />
-      )}
-      {layered[3].map((slot) => (
-        <ForestSprite key={`l3-${slot.id}`} slot={slot} scale={scale} />
+      {(layered[2].length > 0 || layered[3].length > 0) && <Fog colors={fog2} scale={scale} />}
+      {layered[3].map((p) => (
+        <ForestSprite key={`l3-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
     </>
   );
@@ -475,14 +429,7 @@ function GlassReflection({ w, h }: { w: number; h: number }) {
       pointerEvents="none"
       colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.02)", "rgba(255,255,255,0)"]}
       locations={[0, 0.6, 1]}
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        top: 0,
-        width: w,
-        height: h * 0.26,
-      }}
+      style={{ position: "absolute", left: 0, right: 0, top: 0, width: w, height: h * 0.26 }}
     />
   );
 }
@@ -515,14 +462,7 @@ function PotGlow({ scale, bottom }: { scale: number; bottom: number }) {
   return (
     <View
       pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: "50%",
-        marginLeft: -w / 2,
-        bottom,
-        width: w,
-        height: h,
-      }}
+      style={{ position: "absolute", left: "50%", marginLeft: -w / 2, bottom, width: w, height: h }}
     >
       <Svg width={w} height={h} viewBox="0 0 200 130">
         <Defs>
@@ -539,26 +479,20 @@ function PotGlow({ scale, bottom }: { scale: number; bottom: number }) {
   );
 }
 
-function WindowLight({ scale, bottom }: { scale: number; bottom: number }) {
+function WindowLight({ scale, bottom, opacity }: { scale: number; bottom: number; opacity: number }) {
+  if (opacity <= 0.001) return null;
   const w = 200 * scale;
   const h = 80 * scale;
   return (
     <View
       pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: "50%",
-        marginLeft: -w / 2,
-        bottom,
-        width: w,
-        height: h,
-      }}
+      style={{ position: "absolute", left: "50%", marginLeft: -w / 2, bottom, width: w, height: h, opacity }}
     >
       <Svg width={w} height={h} viewBox="0 0 200 80">
         <Defs>
           <RadialGradient id="winlight" cx="50%" cy="100%" r="80%">
             <Stop offset="0" stopColor="rgb(255,220,160)" stopOpacity="0.22" />
-            <Stop offset="0.3" stopColor="rgb(255,200,130)" stopOpacity="0.10" />
+            <Stop offset="0.3" stopColor="rgb(255,200,130)" stopOpacity="0.1" />
             <Stop offset="0.6" stopColor="rgb(255,200,130)" stopOpacity="0" />
             <Stop offset="1" stopColor="rgb(255,200,130)" stopOpacity="0" />
           </RadialGradient>
@@ -583,16 +517,10 @@ function PotTree({
   const stageIdx = Math.max(0, Math.min(POT_TREE_SCALE.length - 1, stage - 1));
   const sprite = getTreeSprite(species, stageIdx);
   const stageScale = POT_TREE_SCALE[stageIdx];
-  // Pot dimensions (design): 90 wide × 60 tall.
   const potW = 90 * scale;
   const potH = 60 * scale;
-  // Container occupies 90 × 160 design units so the tree always has
-  // headroom above the pot regardless of stage scale.
   const containerW = 90 * scale;
   const containerH = 160 * scale;
-  // Tree sized off the per-stage sprite content with the prototype's
-  // pot-scale curve. Renders bottom-aligned, then nudged 10px down so
-  // the trunk visually sits in the soil.
   const treeH = sprite.h * stageScale * scale;
   return (
     <View
@@ -606,19 +534,9 @@ function PotTree({
         height: containerH,
       }}
     >
-      {/* Tree — anchored to the pot soil */}
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 50 * scale,
-          alignItems: "center",
-        }}
-      >
+      <View style={{ position: "absolute", left: 0, right: 0, bottom: 50 * scale, alignItems: "center" }}>
         <PlantSprite rect={sprite} height={treeH} />
       </View>
-      {/* Terracotta pot */}
       <View style={{ position: "absolute", left: 0, bottom: 0 }}>
         <Pot width={potW} height={potH} />
       </View>
@@ -634,8 +552,9 @@ type Props = {
   mainSpecies: number;
   /** Growth stage 1..5. */
   mainStage: number;
-  /** Override the auto-detected time of day. */
-  timeOfDay?: TimeOfDay;
+  /** Time of day in minutes since midnight (0..1440) that drives the
+   *  whole atmosphere. Callers pass the live clock or a demo override. */
+  minutes: number;
 };
 
 /** Total rendered height for a given window width, so callers can size
@@ -645,14 +564,8 @@ export function windowSceneHeight(width: number): number {
   return SCENE_H * scale;
 }
 
-export function Forest({
-  trees,
-  width,
-  mainSpecies,
-  mainStage,
-  timeOfDay,
-}: Props) {
-  const tod = useMemo<TimeOfDay>(() => timeOfDay ?? pickTimeOfDay(), [timeOfDay]);
+export function Forest({ trees, width, mainSpecies, mainStage, minutes }: Props) {
+  const scene = useMemo<Scene>(() => sceneAt(minutes), [minutes]);
   // Scale all design coords to the actual window width.
   const scale = width / DESIGN_W;
   const heroWidthPx = HERO_W * scale;
@@ -661,33 +574,23 @@ export function Forest({
   const framePadPx = FRAME_PAD * scale;
   const panePadPx = PANE_PAD * scale;
 
-  // Bottom anchor for the pot: the pot's lower edge sits IN the sill by
-  // ~12px, so its visual base aligns with the windowsill's top surface.
+  // The pot's lower edge sits IN the sill by ~12px so its visual base
+  // aligns with the windowsill's top surface.
   const potBottomPx = (SILL_H - 12) * scale;
   const windowLightBottomPx = sillHeightPx * 0.4;
+  // Normalise the warm indoor light (max 0.5 at deep night) to a 0..1 opacity.
+  const windowLightOpacity = clamp01(scene.windowLight / 0.5);
 
   return (
     <View style={{ width, height: SCENE_H * scale }}>
       {/* Wooden window frame — wraps top + sides of the glass pane. */}
-      <View
-        style={{
-          paddingHorizontal: framePadPx,
-          paddingTop: framePadPx,
-          paddingBottom: 0,
-        }}
-      >
+      <View style={{ paddingHorizontal: framePadPx, paddingTop: framePadPx, paddingBottom: 0 }}>
         <LinearGradient
           colors={["#5C3A20", "#4A2E1A"]}
           style={[StyleSheet.absoluteFillObject, { borderTopLeftRadius: 6, borderTopRightRadius: 6 }]}
         />
         {/* Dark pane recess inside the wooden frame */}
-        <View
-          style={{
-            padding: panePadPx,
-            backgroundColor: "#1F1208",
-            borderRadius: 4,
-          }}
-        >
+        <View style={{ padding: panePadPx, backgroundColor: "#1F1208", borderRadius: 4 }}>
           {/* Hero — the actual view through the glass */}
           <View
             style={{
@@ -697,14 +600,14 @@ export function Forest({
               borderRadius: 2,
             }}
           >
-            <SkyGradient tod={tod} w={heroWidthPx} h={heroHeightPx} />
-            <SunOrMoon tod={tod} scale={scale} />
-            {tod === "night" && <Stars scale={scale} />}
-            <Mountains tod={tod} w={heroWidthPx} scale={scale} />
-            <Hills tod={tod} w={heroWidthPx} scale={scale} />
-            <ForestTrees trees={trees} tod={tod} scale={scale} />
-            <ForestTint tod={tod} scale={scale} />
-            <GrassForeground tod={tod} scale={scale} />
+            <SkyGradient colors={scene.sky} w={heroWidthPx} h={heroHeightPx} />
+            <CelestialBody c={scene.celestial} scale={scale} />
+            <Stars scale={scale} opacity={scene.stars} />
+            <Mountains colors={scene.mtn} op={scene.mtnOp} w={heroWidthPx} scale={scale} />
+            <Hills colors={scene.hill} op={scene.hillOp} w={heroWidthPx} scale={scale} />
+            <ForestTrees trees={trees} fog1={scene.fog1} fog2={scene.fog2} scale={scale} />
+            <ForestTint color={scene.tint} scale={scale} />
+            <GrassForeground colors={scene.grass} scale={scale} />
             <GlassReflection w={heroWidthPx} h={heroHeightPx} />
           </View>
         </View>
@@ -728,29 +631,18 @@ export function Forest({
         {/* Highlighted leading edge of the sill */}
         <LinearGradient
           colors={["#8B5C36", "#7A4F2C"]}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 6 * scale,
-          }}
+          style={{ position: "absolute", left: 0, right: 0, top: 0, height: 6 * scale }}
         />
       </View>
 
-      {/* Warm window-light spill at night */}
-      {tod === "night" && <WindowLight scale={scale} bottom={windowLightBottomPx} />}
+      {/* Warm window-light spill — grows as the scene darkens */}
+      <WindowLight scale={scale} bottom={windowLightBottomPx} opacity={windowLightOpacity} />
 
       {/* Soft pot glow so the centerpiece pops */}
       <PotGlow scale={scale} bottom={potBottomPx - 14 * scale} />
 
       {/* Pot + growing tree — sits on the sill */}
-      <PotTree
-        species={mainSpecies}
-        stage={mainStage}
-        scale={scale}
-        bottom={potBottomPx}
-      />
+      <PotTree species={mainSpecies} stage={mainStage} scale={scale} bottom={potBottomPx} />
     </View>
   );
 }

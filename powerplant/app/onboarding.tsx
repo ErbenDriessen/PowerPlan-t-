@@ -1,13 +1,15 @@
 // powerplant/app/onboarding.tsx
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "../components/KeyboardAwareScrollView";
 import { Chip } from "../components/Chip";
 import { DuskBackground } from "../components/DuskBackground";
 import { FakeStatusBar } from "../components/FakeStatusBar";
 import { Mascot } from "../components/Mascot";
 import { PrimaryButton } from "../components/buttons";
 import { GlassCard } from "../components/GlassCard";
+import { ensureNotificationPermission } from "../lib/notifications";
 import { useUserStore } from "../stores/useUserStore";
 
 // Each chip turns into an actual goal when picked. The description is a
@@ -89,7 +91,12 @@ export default function Onboarding() {
     if (initiallyOnboardedRef.current) router.replace("/(tabs)/home");
   }, []);
 
-  const done = () => {
+  const done = async () => {
+    // Vraag hier toestemming voor meldingen: die is nodig voor zowel de
+    // focus-pauzes als de bedtijd-herinnering. Door het hier te doen krijgt
+    // ook wie nooit een focusblok start zijn slaap-herinnering. (No-op in
+    // Expo Go; de echte prompt verschijnt in een dev-/productie-build.)
+    await ensureNotificationPermission();
     finish();
     router.replace("/(tabs)/home");
   };
@@ -131,7 +138,7 @@ export default function Onboarding() {
         )}
       </View>
 
-      <ScrollView contentContainerClassName="px-6 pt-4 pb-10 flex-1 justify-between">
+      <KeyboardAwareScrollView contentContainerClassName="px-6 pt-4 pb-10 flex-1 justify-between">
         {step === 1 && (
           <View className="items-center justify-center flex-1">
             <Mascot size={140} breathing="slow" />
@@ -198,6 +205,10 @@ export default function Onboarding() {
               />
             </GlassCard>
             <Text className="text-white/55 text-center mt-3">🌙 Bedtijd</Text>
+            <Text className="text-white/45 text-center text-xs mt-3">
+              Zo vragen we toestemming voor meldingen — voor je bedtijd-herinnering
+              en je focus-pauzes.
+            </Text>
           </View>
         )}
 
@@ -207,7 +218,7 @@ export default function Onboarding() {
             onPress={() => (step < 3 ? setStep(((step + 1) as 1 | 2 | 3)) : done())}
           />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }

@@ -159,8 +159,9 @@ export default function FocusRunning() {
           stop();
           router.back();
         }}
+        hitSlop={8}
       >
-        <Text className="text-white/35 text-[11px] font-bold">Noodstop</Text>
+        <Text className="text-white/45 text-xs font-bold">Stoppen</Text>
       </Pressable>
     </View>
   );

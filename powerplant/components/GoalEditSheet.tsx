@@ -2,9 +2,7 @@
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -23,6 +21,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useKeyboardPadding } from "../lib/useKeyboardPadding";
 import { GhostButton, PrimaryButton } from "./buttons";
 
 const SHEET_OFFSCREEN = 700;
@@ -56,6 +55,7 @@ export function GoalEditSheet({
 
   const translateY = useSharedValue(SHEET_OFFSCREEN);
   const backdrop = useSharedValue(0);
+  const keyboardPad = useKeyboardPadding();
 
   // Hold the latest `initial` in a ref so we can read it inside an effect
   // that only fires on `visible` change — avoids re-running the open
@@ -142,9 +142,8 @@ export function GoalEditSheet({
           <Pressable style={{ flex: 1 }} onPress={onCancel} accessibilityLabel="Sluit doel" />
         </Animated.View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.kavWrap}
+        <Animated.View
+          style={[styles.kavWrap, keyboardPad]}
           pointerEvents="box-none"
         >
           <Animated.View style={sheetStyle}>
@@ -211,7 +210,7 @@ export function GoalEditSheet({
               ) : null}
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </Animated.View>
       </GestureHandlerRootView>
     </Modal>
   );

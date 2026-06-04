@@ -17,7 +17,7 @@ export const ATLAS: { source: ImageRequireSource; width: number; height: number 
 export type SpriteRect = { x: number; y: number; w: number; h: number };
 
 const STAGES: SpriteRect[][] = [
-  // Species 0 — paars/purple fruit
+  // Species 0 — paars/purple fruit (besjes)
   [
     { x: 8, y: 54, w: 17, h: 20 },   // stage 0 — sapling
     { x: 35, y: 42, w: 27, h: 36 },  // stage 1 — young
@@ -25,7 +25,7 @@ const STAGES: SpriteRect[][] = [
     { x: 135, y: 14, w: 52, h: 66 }, // stage 3 — medium
     { x: 199, y: 14, w: 52, h: 66 }, // stage 4 — full (with fruit)
   ],
-  // Species 1 — rood/red fruit
+  // Species 1 — geel/yellow fruit
   [
     { x: 9, y: 119, w: 14, h: 20 },
     { x: 37, y: 108, w: 23, h: 33 },
@@ -33,7 +33,7 @@ const STAGES: SpriteRect[][] = [
     { x: 138, y: 82, w: 48, h: 62 },
     { x: 202, y: 82, w: 48, h: 62 },
   ],
-  // Species 2 — geel/yellow fruit
+  // Species 2 — rood/red fruit
   [
     { x: 9, y: 180, w: 14, h: 22 },
     { x: 35, y: 172, w: 28, h: 32 },

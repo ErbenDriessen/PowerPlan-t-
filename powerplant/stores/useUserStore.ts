@@ -41,6 +41,12 @@ type UserState = {
   currentSpecies: number;
   plantedTrees: PlantedTree[];
   bomenGeplant: number;
+  /** Een boom bereikte de prestige-drempel en wacht tot de gebruiker via de
+   *  globale popup de volgende soort kiest. */
+  pendingPrestige: boolean;
+  /** Index in plantedTrees van een net-geprestigede boom waarvan de plant-
+   *  animatie nog niet speelde (wordt verbruikt bij het volgende boom-bezoek). */
+  pendingPlantIndex: number | null;
 
   setName: (n: string) => void;
   toggleGoal: (title: string, description?: string) => void;
@@ -51,6 +57,9 @@ type UserState = {
   bumpHour: (d: number) => void;
   bumpMin: (d: number) => void;
   addPoints: (delta: number, ringDelta: number) => void;
+  /** Commit a prestige: plant the matured tree into the forest and switch the
+   *  pot to the user-chosen next species. */
+  completePrestige: (nextSpecies: number) => void;
   bumpStreak: (delta: number) => void;
   rolloverIfNewDay: (today: string) => void;
   resetGoalsDone: () => void;
@@ -148,6 +157,8 @@ export const useUserStore = create<UserState>()(
       currentSpecies: 0,
       plantedTrees: [],
       bomenGeplant: 0,
+      pendingPrestige: false,
+      pendingPlantIndex: null,
 
       setName: (n) => set({ name: n.trim() }),
       toggleGoal: (title, description) => {
@@ -190,30 +201,34 @@ export const useUserStore = create<UserState>()(
       addPoints: (delta, ringDelta) =>
         set((s) => {
           let newPoints = Math.max(0, s.points + delta);
-          let plantedTrees = s.plantedTrees;
-          let bomenGeplant = s.bomenGeplant;
-          let currentSpecies = s.currentSpecies;
-
-          // Prestige cascade: if the delta is large enough to skip past
-          // the threshold (or skip past it multiple times), plant a tree
-          // per crossing so no progress is lost.
-          while (newPoints >= PRESTIGE_THRESHOLD) {
-            plantedTrees = [
-              ...plantedTrees,
-              makePlantedTree(currentSpecies, plantedTrees.length),
-            ];
-            bomenGeplant += 1;
-            currentSpecies = randomSpecies(currentSpecies);
-            newPoints -= PRESTIGE_THRESHOLD;
+          // Bij het bereiken van de prestige-drempel niet meer automatisch een
+          // boom planten + willekeurige soort kiezen. We zetten een vlag en
+          // cappen de punten op de drempel; de globale prestige-popup laat de
+          // gebruiker zelf de volgende boom kiezen (zie completePrestige).
+          let pendingPrestige = s.pendingPrestige;
+          if (newPoints >= PRESTIGE_THRESHOLD) {
+            newPoints = PRESTIGE_THRESHOLD;
+            pendingPrestige = true;
           }
-
           return {
             points: newPoints,
             ringProgress: Math.max(0, Math.min(1, s.ringProgress + ringDelta)),
             treeStage: pointsToStage(newPoints),
-            plantedTrees,
-            bomenGeplant,
-            currentSpecies,
+            pendingPrestige,
+          };
+        }),
+      completePrestige: (nextSpecies) =>
+        set((s) => {
+          const index = s.plantedTrees.length;
+          return {
+            plantedTrees: [...s.plantedTrees, makePlantedTree(s.currentSpecies, index)],
+            bomenGeplant: s.bomenGeplant + 1,
+            pendingPlantIndex: index,
+            pendingPrestige: false,
+            currentSpecies: nextSpecies,
+            points: 0,
+            treeStage: 1,
+            ringProgress: 0,
           };
         }),
       bumpStreak: (delta) =>
@@ -285,9 +300,11 @@ export const useUserStore = create<UserState>()(
           plantedTrees: [],
           bomenGeplant: 0,
           currentSpecies: randomSpecies(),
+          pendingPrestige: false,
+          pendingPlantIndex: null,
         }),
       resetForest: () =>
-        set({ plantedTrees: [], bomenGeplant: 0 }),
+        set({ plantedTrees: [], bomenGeplant: 0, pendingPlantIndex: null }),
       resetApp: () =>
         set({
           name: "",
@@ -303,11 +320,13 @@ export const useUserStore = create<UserState>()(
           currentSpecies: 0,
           plantedTrees: [],
           bomenGeplant: 0,
+          pendingPrestige: false,
+          pendingPlantIndex: null,
         }),
     }),
     {
       name: "powerplant-user",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       // v1 stored goals as string[].
       // v3 introduces the prestige system: plantedTrees, bomenGeplant,
@@ -326,6 +345,11 @@ export const useUserStore = create<UserState>()(
           // displayed stage doesn't look out of whack right after upgrade.
           const points = typeof obj.points === "number" ? obj.points : 0;
           obj.treeStage = pointsToStage(Math.min(points, PRESTIGE_THRESHOLD - 1));
+        }
+        if (version < 4) {
+          // v4: prestige wordt een keuze-flow met een globale popup.
+          obj.pendingPrestige = false;
+          obj.pendingPlantIndex = null;
         }
         return obj;
       },

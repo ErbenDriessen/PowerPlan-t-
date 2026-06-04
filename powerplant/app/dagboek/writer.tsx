@@ -1,7 +1,8 @@
 // powerplant/app/dagboek/writer.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "../../components/KeyboardAwareScrollView";
 import { LinearGradient } from "expo-linear-gradient";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { MoodPicker } from "../../components/MoodPicker";
@@ -86,7 +87,7 @@ export default function Writer() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerClassName="px-6 pb-12">
+      <KeyboardAwareScrollView contentContainerClassName="px-6 pb-12">
         <Text className="text-white/55 text-xs font-bold uppercase tracking-widest mb-3">
           {dateForEntry}
         </Text>
@@ -129,7 +130,7 @@ export default function Writer() {
             </Pressable>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }
