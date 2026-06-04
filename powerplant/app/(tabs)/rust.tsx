@@ -18,8 +18,8 @@ export default function Rust() {
   const tiles: Tile[] = [
     {
       emoji: "🌬️",
-      title: "Ademhaling 4-7-8",
-      sub: "4 rondes · ruim 1 minuut",
+      title: "Ademhaling",
+      sub: "kies je techniek",
       variant: "default",
       onPress: () => router.push("/breathing" as any),
     },
