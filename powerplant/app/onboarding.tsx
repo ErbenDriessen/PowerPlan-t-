@@ -1,7 +1,8 @@
 // powerplant/app/onboarding.tsx
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "../components/KeyboardAwareScrollView";
 import { Chip } from "../components/Chip";
 import { DuskBackground } from "../components/DuskBackground";
 import { FakeStatusBar } from "../components/FakeStatusBar";
@@ -131,7 +132,7 @@ export default function Onboarding() {
         )}
       </View>
 
-      <ScrollView contentContainerClassName="px-6 pt-4 pb-10 flex-1 justify-between">
+      <KeyboardAwareScrollView contentContainerClassName="px-6 pt-4 pb-10 flex-1 justify-between">
         {step === 1 && (
           <View className="items-center justify-center flex-1">
             <Mascot size={140} breathing="slow" />
@@ -207,7 +208,7 @@ export default function Onboarding() {
             onPress={() => (step < 3 ? setStep(((step + 1) as 1 | 2 | 3)) : done())}
           />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }
