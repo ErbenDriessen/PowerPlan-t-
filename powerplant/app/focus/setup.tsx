@@ -7,6 +7,7 @@ import { CustomDurationSheet } from "../../components/CustomDurationSheet";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
+import { BackButton } from "../../components/BackButton";
 import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/buttons";
 import { useFocusStore } from "../../stores/useFocusStore";
@@ -38,9 +39,7 @@ export default function FocusSetup() {
       <FakeStatusBar />
 
       <View className="px-6 pt-2 flex-row items-center justify-between mb-3">
-        <Pressable onPress={() => router.back()}>
-          <Text className="text-white/70 text-sm font-bold">← Terug</Text>
-        </Pressable>
+        <BackButton label="Terug" />
         <Text className="text-white text-base font-semibold">Focusmodus</Text>
         <View style={{ width: 36 }} />
       </View>
@@ -133,7 +132,7 @@ export default function FocusSetup() {
           }}
         />
         <Text className="text-center text-white/50 text-xs mt-3">
-          🔒 Tijdens focus is je telefoon op slot.
+          🌙 Leg je telefoon weg — Sprout bewaakt de tijd voor je.
         </Text>
       </ScrollView>
 

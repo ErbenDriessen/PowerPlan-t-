@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
+import { BackButton } from "../../components/BackButton";
 import { Mascot } from "../../components/Mascot";
 import { PrimaryButton } from "../../components/buttons";
 import { useJournalStore, Mood } from "../../stores/useJournalStore";
@@ -42,9 +43,7 @@ export default function DagboekIndex() {
 
       <View className="px-6 pt-2 flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-2">
-          <Pressable onPress={() => router.back()}>
-            <Text className="text-white/70 text-lg font-bold">←</Text>
-          </Pressable>
+          <BackButton />
           <Text className="text-white text-2xl font-extrabold">Dagboek</Text>
         </View>
         <Mascot size={36} />
