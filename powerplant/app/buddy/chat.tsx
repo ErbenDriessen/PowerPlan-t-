@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { useBuddyStore } from "../../stores/useBuddyStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
@@ -29,21 +29,31 @@ const PRESET_MESSAGES = [
   "Morgen beter!",
 ];
 
+const SEND_COOLDOWN_MS = 3000;
+
 export default function ChatScreen() {
   const { buddyId: buddyIdParam, username } = useLocalSearchParams<{ buddyId: string; username: string }>();
   const buddyId = Number(buddyIdParam);
   const currentUser = useBuddyStore((s) => s.currentUser);
   const [messages, setMessages] = useState<Message[]>([]);
   const listRef = useRef<FlatList<Message>>(null);
+  const lastSentRef = useRef(0);
 
   useEffect(() => {
     loadCachedMessages(buddyIdParam).then((cached) => {
       if (cached.length > 0) setMessages(cached);
     });
     sync();
-    const id = setInterval(sync, 10_000);
+    const id = setInterval(sync, 5_000);
     return () => clearInterval(id);
   }, [buddyIdParam]);
+
+  // Sync opnieuw wanneer het scherm de focus terugkrijgt
+  useFocusEffect(
+    useCallback(() => {
+      sync();
+    }, [buddyId])
+  );
 
   async function sync() {
     try {
@@ -54,6 +64,10 @@ export default function ChatScreen() {
   }
 
   async function handleSend(text: string) {
+    const now = Date.now();
+    if (now - lastSentRef.current < SEND_COOLDOWN_MS) return;
+    lastSentRef.current = now;
+
     const optimistic: Message = {
       id: -Date.now(),
       buddyId,

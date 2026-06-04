@@ -27,23 +27,20 @@ export default function BuddyTab() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      loadBuddies();
-      loadMatches();
-    }
+    if (isLoggedIn) loadAll();
   }, [isLoggedIn]);
 
-  async function loadBuddies() {
-    try {
-      setBuddies(await buddyApi.getBuddies());
-    } catch { /* offline */ }
-  }
-
-  async function loadMatches() {
+  async function loadAll() {
     setMatchLoading(true);
     try {
       const myGoals = goals.map((g) => g.title);
-      setMatches(await buddyApi.findMatchingUsers(myGoals));
+      const [fetchedBuddies, fetchedMatches] = await Promise.all([
+        buddyApi.getBuddies(),
+        buddyApi.findMatchingUsers(myGoals),
+      ]);
+      setBuddies(fetchedBuddies);
+      const existingIds = new Set(fetchedBuddies.map((b) => b.other.id));
+      setMatches(fetchedMatches.filter((u) => !existingIds.has(u.id)));
     } catch { /* offline */ }
     finally { setMatchLoading(false); }
   }
@@ -52,7 +49,7 @@ export default function BuddyTab() {
     try {
       await buddyApi.sendBuddyRequest(receiverId);
       setMatches((prev) => prev.filter((u) => u.id !== receiverId));
-      await loadBuddies();
+      await loadAll();
     } catch (err: unknown) {
       alert((err as Error).message ?? "Verzoek mislukt");
     }
@@ -60,7 +57,7 @@ export default function BuddyTab() {
 
   async function handleAccept(buddyId: number) {
     await buddyApi.updateBuddyStatus(buddyId, "accepted");
-    await loadBuddies();
+    await loadAll();
   }
 
   if (!isLoggedIn) {
