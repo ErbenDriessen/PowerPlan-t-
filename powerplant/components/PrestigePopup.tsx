@@ -14,17 +14,19 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import { getMatureTreeSprite } from "../lib/plantSprites";
 import { SPECIES } from "../lib/species";
 import { useUserStore } from "../stores/useUserStore";
+import { CelebrationFX } from "./CelebrationFX";
 import { PlantSprite } from "./PlantSprite";
 
 // Schermen waar de popup moet wachten (sessies waarop je niet gestoord
 // wilt worden).
 const SUPPRESS_PREFIXES = ["/focus", "/meditation", "/breathing"];
+
+const speciesById = (id: number) => SPECIES.find((s) => s.id === id) ?? SPECIES[0];
 
 export function PrestigePopup() {
   const pendingPrestige = useUserStore((s) => s.pendingPrestige);
@@ -37,125 +39,119 @@ export function PrestigePopup() {
 
   const [phase, setPhase] = useState<"celebrate" | "picker">("celebrate");
   const [selected, setSelected] = useState<number | null>(null);
+  // Loopt op bij elke opening — herstart de confetti.
+  const [openCount, setOpenCount] = useState(0);
 
   // Reset naar de vier-fase elke keer dat de popup opengaat.
   useEffect(() => {
     if (visible) {
       setPhase("celebrate");
       setSelected(null);
+      setOpenCount((n) => n + 1);
     }
   }, [visible]);
 
-  // Zachte pulserende glow achter de boom.
-  const pulse = useSharedValue(1);
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withTiming(1.12, { duration: 1700, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true,
-    );
-  }, []);
-  const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
-
-  // Eenmalige pop bij openen.
-  const pop = useSharedValue(0.85);
+  // Eenmalige pop bij openen van de kaart.
+  const pop = useSharedValue(0.9);
   useEffect(() => {
     if (visible) {
-      pop.value = 0.85;
-      pop.value = withTiming(1, { duration: 340, easing: Easing.out(Easing.back(1.4)) });
+      pop.value = 0.9;
+      pop.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.back(1.5)) });
     }
   }, [visible]);
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
+  const grown = speciesById(currentSpecies);
   const matured = getMatureTreeSprite(currentSpecies);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <View
-        className="flex-1 items-center justify-center px-7"
-        style={{ backgroundColor: "rgba(8,20,14,0.92)" }}
+        className="flex-1 items-center justify-center px-6"
+        style={{ backgroundColor: "rgba(9,20,15,0.74)" }}
       >
-        <Animated.View style={popStyle} className="items-center w-full">
+        <Animated.View
+          style={[popStyle, { overflow: "hidden" }]}
+          className="w-full max-w-[360px] rounded-[30px] border border-white/10 px-6 pt-7 pb-6 items-center"
+        >
+          {/* kaart-achtergrond */}
+          <View
+            className="absolute inset-0 rounded-[30px]"
+            style={{ backgroundColor: "#15281E" }}
+          />
+
+          {/* feest-flair (glow + stralen + confetti) — alleen in de viering */}
+          {phase === "celebrate" && <CelebrationFX trigger={openCount} accent={grown.color} />}
+
           {phase === "celebrate" ? (
-            <View className="items-center">
-              <View className="items-center justify-center mb-2" style={{ height: 170 }}>
-                <Animated.View
-                  style={[
-                    glowStyle,
-                    {
-                      position: "absolute",
-                      width: 220,
-                      height: 220,
-                      borderRadius: 110,
-                      backgroundColor: "rgba(155,206,92,0.16)",
-                    },
-                  ]}
-                />
-                <Animated.View
-                  style={[
-                    glowStyle,
-                    {
-                      position: "absolute",
-                      width: 130,
-                      height: 130,
-                      borderRadius: 65,
-                      backgroundColor: "rgba(155,206,92,0.18)",
-                    },
-                  ]}
-                />
+            <>
+              <Text className="text-primary-soft text-xs font-extrabold tracking-[2px] uppercase mb-1">
+                Volgroeid
+              </Text>
+
+              {/* podium met boom (glow zit in de FX erachter) */}
+              <View className="items-center justify-center my-3" style={{ height: 168 }}>
                 <PlantSprite rect={matured} height={150} />
               </View>
+
               <Text className="text-white text-2xl font-extrabold text-center">
-                Je boom is volgroeid! 🌳
+                Je {grown.name.toLowerCase()} is klaar! 🌳
               </Text>
-              <Text className="text-white/70 text-sm text-center mt-2 leading-snug max-w-[280px]">
-                Mooi werk. Hij verhuist nu naar jouw bos — een blijvend bewijs van je groei.
+              <Text className="text-white/65 text-sm text-center mt-2 leading-snug max-w-[270px]">
+                Mooi werk — hij verhuist nu naar jouw bos als blijvend bewijs van je groei.
               </Text>
+
               <Pressable
                 onPress={() => setPhase("picker")}
-                className="mt-7 bg-primary border border-primary-soft rounded-2xl px-10 py-3.5 active:opacity-80"
+                className="mt-6 w-full items-center bg-primary rounded-2xl py-4 active:opacity-80"
               >
                 <Text className="text-white font-extrabold text-base">Kies je volgende boom</Text>
               </Pressable>
-            </View>
+            </>
           ) : (
-            <View className="items-center w-full">
+            <>
               <Text className="text-white text-xl font-extrabold text-center">
-                Wat wil je hierna laten groeien?
+                Wat plant je hierna?
               </Text>
-              <Text className="text-white/65 text-sm text-center mt-1 mb-6">
+              <Text className="text-white/60 text-sm text-center mt-1 mb-5">
                 Elke soort draagt ander fruit.
               </Text>
 
-              <View className="flex-row gap-3 w-full">
+              <View className="flex-row w-full" style={{ gap: 10 }}>
                 {SPECIES.map((sp) => {
                   const isSel = selected === sp.id;
                   return (
                     <Pressable
                       key={sp.id}
                       onPress={() => setSelected(sp.id)}
-                      className={`flex-1 rounded-3xl px-2 pt-3 pb-3 items-center border-2 ${
-                        isSel
-                          ? "border-primary-soft bg-primary/15"
-                          : "border-white/10 bg-white/[0.06]"
-                      }`}
+                      className="flex-1 rounded-3xl pt-3 pb-3 px-1 items-center border-2"
+                      style={{
+                        borderColor: isSel ? sp.color : "rgba(255,255,255,0.08)",
+                        backgroundColor: isSel ? `${sp.color}1F` : "rgba(255,255,255,0.04)",
+                      }}
                     >
-                      <View className="h-[78px] justify-end mb-2">
-                        <PlantSprite rect={getMatureTreeSprite(sp.id)} height={74} />
+                      <View className="h-[76px] justify-end mb-2">
+                        <PlantSprite rect={getMatureTreeSprite(sp.id)} height={72} />
                       </View>
                       <Text className="text-white font-extrabold text-xs text-center">
-                        {sp.name}
+                        {sp.name.replace("boom", "")}
                       </Text>
-                      <View className="flex-row items-center gap-1 mt-1">
+                      <View
+                        className="flex-row items-center mt-1.5 rounded-full px-2 py-0.5"
+                        style={{ backgroundColor: `${sp.color}26` }}
+                      >
                         <View
                           style={{
                             width: 7,
                             height: 7,
                             borderRadius: 4,
                             backgroundColor: sp.color,
+                            marginRight: 4,
                           }}
                         />
-                        <Text className="text-white/55 text-[10px] font-semibold">{sp.fruit}</Text>
+                        <Text className="text-white/75 text-[10px] font-bold">
+                          {sp.fruit.replace(" fruit", "")}
+                        </Text>
                       </View>
                     </Pressable>
                   );
@@ -165,21 +161,23 @@ export function PrestigePopup() {
               <Pressable
                 disabled={selected === null}
                 onPress={() => selected !== null && completePrestige(selected)}
-                className={`mt-7 w-full items-center rounded-2xl px-6 py-4 border ${
-                  selected === null
-                    ? "bg-white/5 border-white/10"
-                    : "bg-primary border-primary-soft active:opacity-80"
-                }`}
+                className="mt-6 w-full items-center rounded-2xl py-4"
+                style={{
+                  backgroundColor:
+                    selected === null ? "rgba(255,255,255,0.06)" : speciesById(selected).color,
+                }}
               >
                 <Text
                   className={`font-extrabold text-base ${
                     selected === null ? "text-white/35" : "text-white"
                   }`}
                 >
-                  Plant dit zaadje
+                  {selected === null
+                    ? "Kies een boom"
+                    : `Plant je ${speciesById(selected).name.toLowerCase()}`}
                 </Text>
               </Pressable>
-            </View>
+            </>
           )}
         </Animated.View>
       </View>

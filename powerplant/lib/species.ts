@@ -9,8 +9,11 @@ export type Species = {
   color: string;
 };
 
+// Volgorde = sprite-index in trees.png (0..2). De fruitkleuren hieronder
+// zijn afgestemd op de échte sprites: rij 0 paarse besjes, rij 1 geel
+// fruit, rij 2 rood fruit.
 export const SPECIES: Species[] = [
   { id: 0, name: "Pruimenboom", fruit: "paars fruit", color: "#9B6BC4" },
-  { id: 1, name: "Appelboom", fruit: "rood fruit", color: "#D65A52" },
-  { id: 2, name: "Perenboom", fruit: "geel fruit", color: "#E0B33C" },
+  { id: 1, name: "Perenboom", fruit: "geel fruit", color: "#E0B33C" },
+  { id: 2, name: "Appelboom", fruit: "rood fruit", color: "#D65A52" },
 ];

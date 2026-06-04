@@ -330,8 +330,16 @@ function GrassForeground({ colors, scale }: { colors: [string, string, string]; 
 const LAYER_BOOST: Record<Layer, number> = { 1: 1.0, 2: 1.25, 3: 1.6 };
 const POS_COMPRESS = 0.9;
 
-function ForestSprite({ slot, scale }: { slot: Slot; scale: number }) {
-  const sprite = rectAt(slot.species);
+function ForestSprite({
+  slot,
+  species,
+  scale,
+}: {
+  slot: Slot;
+  species: number;
+  scale: number;
+}) {
+  const sprite = rectAt(species);
   const heightPx = sprite.h * slot.scale * LAYER_BOOST[slot.layer] * scale;
   return (
     <View
@@ -375,32 +383,41 @@ function ForestTrees({
   scale: number;
 }) {
   const visibleCount = Math.min(trees.length, PROGRESSION.length);
-  const visibleIds = new Set<number>(PROGRESSION.slice(0, visibleCount));
-  const visible = SLOTS.filter((s) => visibleIds.has(s.id));
 
-  const layered: Record<Layer, Slot[]> = { 1: [], 2: [], 3: [] };
-  visible.forEach((s) => layered[s.layer].push(s));
+  // Koppel elke geplante boom aan z'n slot: PROGRESSION is de volgorde
+  // waarin slots vollopen, dus boom i hoort bij slot PROGRESSION[i]. We
+  // tekenen met de SOORT van de boom (door de gebruiker gekozen) op de
+  // POSITIE/SCHAAL van de slot.
+  type Placed = { slot: Slot; species: number };
+  const placed: Placed[] = [];
+  for (let i = 0; i < visibleCount; i++) {
+    const slot = SLOTS.find((s) => s.id === PROGRESSION[i]);
+    if (slot) placed.push({ slot, species: trees[i].species });
+  }
+
+  const layered: Record<Layer, Placed[]> = { 1: [], 2: [], 3: [] };
+  placed.forEach((p) => layered[p.slot.layer].push(p));
   // Tallest renders last within each layer for clean z-order.
   ([1, 2, 3] as Layer[]).forEach((layer) => {
     layered[layer].sort((a, b) => {
-      const ha = rectAt(a.species).h * a.scale;
-      const hb = rectAt(b.species).h * b.scale;
+      const ha = rectAt(a.species).h * a.slot.scale;
+      const hb = rectAt(b.species).h * b.slot.scale;
       return ha - hb;
     });
   });
 
   return (
     <>
-      {layered[1].map((slot) => (
-        <ForestSprite key={`l1-${slot.id}`} slot={slot} scale={scale} />
+      {layered[1].map((p) => (
+        <ForestSprite key={`l1-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
-      {visible.length > 0 && <Fog colors={fog1} scale={scale} />}
-      {layered[2].map((slot) => (
-        <ForestSprite key={`l2-${slot.id}`} slot={slot} scale={scale} />
+      {placed.length > 0 && <Fog colors={fog1} scale={scale} />}
+      {layered[2].map((p) => (
+        <ForestSprite key={`l2-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
       {(layered[2].length > 0 || layered[3].length > 0) && <Fog colors={fog2} scale={scale} />}
-      {layered[3].map((slot) => (
-        <ForestSprite key={`l3-${slot.id}`} slot={slot} scale={scale} />
+      {layered[3].map((p) => (
+        <ForestSprite key={`l3-${p.slot.id}`} slot={p.slot} species={p.species} scale={scale} />
       ))}
     </>
   );
