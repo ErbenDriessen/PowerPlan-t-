@@ -1,6 +1,6 @@
 // powerplant/app/(tabs)/tree.tsx
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { Forest } from "../../components/Forest";
@@ -42,6 +42,7 @@ function cellState(
 
 export default function MijnBoom() {
   const points = useUserStore((s) => s.points);
+  const addPoints = useUserStore((s) => s.addPoints);
   const treeStage = useUserStore((s) => s.treeStage);
   const currentSpecies = useUserStore((s) => s.currentSpecies);
   const plantedTrees = useUserStore((s) => s.plantedTrees);
@@ -141,12 +142,47 @@ export default function MijnBoom() {
         </View>
 
         {showWindowControls && (
-          <WindowControls
-            sceneMinutes={sceneMinutes}
-            isAuto={windowOverrideMinutes === null}
-            onScrub={setWindowOverrideMinutes}
-            onAuto={() => setWindowOverrideMinutes(null)}
-          />
+          <>
+            <WindowControls
+              sceneMinutes={sceneMinutes}
+              isAuto={windowOverrideMinutes === null}
+              onScrub={setWindowOverrideMinutes}
+              onAuto={() => setWindowOverrideMinutes(null)}
+            />
+            {/* Dev-snelknoppen voor punten — zelfde toggle als de tijd-
+                bediening, zodat je tijdens een demo niet naar Meer hoeft. */}
+            <GlassCard className="p-3 mb-3">
+              <Text className="text-white/45 text-[10px] font-bold uppercase tracking-widest mb-2">
+                🛠️ dev · punten ({points})
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                <Pressable
+                  onPress={() => addPoints(10, 0)}
+                  className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+                >
+                  <Text className="text-white font-bold text-sm">+10</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => addPoints(50, 0)}
+                  className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+                >
+                  <Text className="text-white font-bold text-sm">+50</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => addPoints(100, 0)}
+                  className="bg-primary rounded-2xl px-4 py-2 active:opacity-80"
+                >
+                  <Text className="text-white font-bold text-sm">+100</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => addPoints(-50, 0)}
+                  className="bg-white/10 border border-white/15 rounded-2xl px-4 py-2 active:opacity-80"
+                >
+                  <Text className="text-white font-bold text-sm">-50</Text>
+                </Pressable>
+              </View>
+            </GlassCard>
+          </>
         )}
         <Text className="text-center text-white/55 text-xs mb-4">
           {bomenGeplant === 0
