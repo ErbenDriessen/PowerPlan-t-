@@ -4,16 +4,33 @@ import { router } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
+import { Chip } from "../../components/Chip";
 import { PrimaryButton, GhostButton } from "../../components/buttons";
 import { useBuddyStore } from "../../stores/useBuddyStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
+
+const GOAL_OPTIONS = [
+  { title: "Meer bewegen", description: "Korte wandeling van 15 min" },
+  { title: "Betere slaap", description: "Telefoon weg om 22:00" },
+  { title: "Minder stress", description: "Ademhalingsoefening of korte pauze" },
+  { title: "Schooldoelen", description: "Eén studeerblok of leesmoment" },
+  { title: "Meer rust nemen", description: "5–10 min meditatie of stil zitten" },
+  { title: "Beter focussen", description: "Eén focusblok zonder afleiding" },
+];
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const setCurrentUser = useBuddyStore((s) => s.setCurrentUser);
+
+  function toggleSelected(title: string) {
+    setSelectedGoals((prev) =>
+      prev.includes(title) ? prev.filter((g) => g !== title) : [...prev, title]
+    );
+  }
 
   async function handleRegister() {
     if (!username.trim() || !email.trim() || !password.trim()) {
@@ -25,6 +42,9 @@ export default function RegisterScreen() {
       const { token, user } = await buddyApi.register(username.trim(), email.trim(), password);
       await buddyApi.saveToken(token);
       setCurrentUser(user);
+      try {
+        await buddyApi.syncGoals(selectedGoals);
+      } catch { /* non-fatal */ }
       router.replace("/(tabs)/buddy");
     } catch (err: unknown) {
       Alert.alert("Registreren mislukt", (err as Error).message ?? "Probeer opnieuw");
@@ -80,6 +100,25 @@ export default function RegisterScreen() {
             onChangeText={setPassword}
             secureTextEntry
           />
+        </GlassCard>
+
+        <GlassCard className="p-5 mb-4">
+          <Text className="text-white/70 text-xs font-bold mb-1 uppercase tracking-widest">
+            Waar wil jij aan werken?
+          </Text>
+          <Text className="text-white/45 text-xs mb-3">
+            Andere gebruikers met dezelfde doelen kunnen je vinden als buddy
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {GOAL_OPTIONS.map((g) => (
+              <Chip
+                key={g.title}
+                label={g.title}
+                selected={selectedGoals.includes(g.title)}
+                onPress={() => toggleSelected(g.title)}
+              />
+            ))}
+          </View>
         </GlassCard>
 
         <PrimaryButton

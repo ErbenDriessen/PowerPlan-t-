@@ -1,19 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
+import { Chip } from "../../components/Chip";
 import { PrimaryButton, GhostButton } from "../../components/buttons";
 import { useBuddyStore } from "../../stores/useBuddyStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
 
+const GOAL_OPTIONS = [
+  { title: "Meer bewegen", description: "Korte wandeling van 15 min" },
+  { title: "Betere slaap", description: "Telefoon weg om 22:00" },
+  { title: "Minder stress", description: "Ademhalingsoefening of korte pauze" },
+  { title: "Schooldoelen", description: "Eén studeerblok of leesmoment" },
+  { title: "Meer rust nemen", description: "5–10 min meditatie of stil zitten" },
+  { title: "Beter focussen", description: "Eén focusblok zonder afleiding" },
+];
+
 export default function AccountScreen() {
   const { currentUser, setCurrentUser, logout } = useBuddyStore();
+
   const [username, setUsername] = useState(currentUser?.username ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    buddyApi.getMyGoals()
+      .then(setSelectedGoals)
+      .catch(() => {});
+  }, []);
+
+  function toggleSelected(title: string) {
+    setSelectedGoals((prev) =>
+      prev.includes(title) ? prev.filter((g) => g !== title) : [...prev, title]
+    );
+  }
 
   async function handleSave() {
     if (!username.trim()) return;
@@ -25,9 +49,11 @@ export default function AccountScreen() {
         data.password = newPassword;
         data.currentPassword = currentPassword;
       }
-      if (Object.keys(data).length === 0) { setSaving(false); return; }
-      const updated = await buddyApi.updateMe(data);
-      setCurrentUser({ ...currentUser!, ...updated });
+      if (Object.keys(data).length > 0) {
+        const updated = await buddyApi.updateMe(data);
+        setCurrentUser({ ...currentUser!, ...updated });
+      }
+      await buddyApi.syncGoals(selectedGoals);
       Alert.alert("Opgeslagen");
       setCurrentPassword("");
       setNewPassword("");
@@ -82,7 +108,7 @@ export default function AccountScreen() {
         contentContainerClassName="px-5 pb-32"
         keyboardShouldPersistTaps="handled"
       >
-        <GlassCard className="p-5 mb-5">
+        <GlassCard className="p-5 mb-4">
           <Text className="text-white/70 text-xs font-bold mb-1 uppercase tracking-widest">
             Gebruikersnaam
           </Text>
@@ -115,6 +141,25 @@ export default function AccountScreen() {
             onChangeText={setNewPassword}
             secureTextEntry
           />
+        </GlassCard>
+
+        <GlassCard className="p-5 mb-5">
+          <Text className="text-white/70 text-xs font-bold mb-1 uppercase tracking-widest">
+            Mijn doelen
+          </Text>
+          <Text className="text-white/45 text-xs mb-3">
+            Andere gebruikers vinden je op basis van deze doelen
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {GOAL_OPTIONS.map((g) => (
+              <Chip
+                key={g.title}
+                label={g.title}
+                selected={selectedGoals.includes(g.title)}
+                onPress={() => toggleSelected(g.title)}
+              />
+            ))}
+          </View>
         </GlassCard>
 
         <PrimaryButton label={saving ? "Opslaan..." : "Opslaan"} onPress={handleSave} />

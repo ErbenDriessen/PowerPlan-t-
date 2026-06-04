@@ -1,4 +1,5 @@
-// Supabase gebruikt UUID's als sleutels, dus alle id's zijn strings.
+// profiles.id is altijd een UUID (vastgezet door Supabase Auth).
+// buddies.id en messages.id zijn bigserial — gewone oplopende getallen.
 export type User = {
   id: string;
   username: string;
@@ -9,7 +10,7 @@ export type User = {
 export type BuddyStatus = 'pending' | 'accepted' | 'blocked';
 
 export type Buddy = {
-  id: string;
+  id: number;
   status: BuddyStatus;
   createdAt: string;
   other: {
@@ -21,8 +22,8 @@ export type Buddy = {
 };
 
 export type Message = {
-  id: string;
-  buddyId: string;
+  id: number;
+  buddyId: number;
   senderId: string;
   body: string;
   type: string;

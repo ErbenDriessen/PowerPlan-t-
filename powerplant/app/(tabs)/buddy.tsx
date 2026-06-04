@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
 import { PrimaryButton } from "../../components/buttons";
 import { useBuddyStore } from "../../stores/useBuddyStore";
+import { useUserStore } from "../../stores/useUserStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
 import type { Buddy } from "../../features/buddy/types";
 
 export default function BuddyTab() {
   const { currentUser, isLoggedIn, setCurrentUser } = useBuddyStore();
   const [buddies, setBuddies] = useState<Buddy[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{ id: string; username: string }[]>([]);
+  const [matches, setMatches] = useState<{ id: string; username: string; goals: string[] }[]>([]);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const goals = useUserStore((s) => s.goals);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -25,7 +27,10 @@ export default function BuddyTab() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) loadBuddies();
+    if (isLoggedIn) {
+      loadBuddies();
+      loadMatches();
+    }
   }, [isLoggedIn]);
 
   async function loadBuddies() {
@@ -34,26 +39,26 @@ export default function BuddyTab() {
     } catch { /* offline */ }
   }
 
-  async function handleSearch(q: string) {
-    setSearchQuery(q);
-    if (q.length < 2) { setSearchResults([]); return; }
+  async function loadMatches() {
+    setMatchLoading(true);
     try {
-      setSearchResults(await buddyApi.searchUsers(q));
-    } catch { setSearchResults([]); }
+      const myGoals = goals.map((g) => g.title);
+      setMatches(await buddyApi.findMatchingUsers(myGoals));
+    } catch { /* offline */ }
+    finally { setMatchLoading(false); }
   }
 
   async function handleAdd(receiverId: string) {
     try {
       await buddyApi.sendBuddyRequest(receiverId);
-      setSearchQuery("");
-      setSearchResults([]);
+      setMatches((prev) => prev.filter((u) => u.id !== receiverId));
       await loadBuddies();
     } catch (err: unknown) {
       alert((err as Error).message ?? "Verzoek mislukt");
     }
   }
 
-  async function handleAccept(buddyId: string) {
+  async function handleAccept(buddyId: number) {
     await buddyApi.updateBuddyStatus(buddyId, "accepted");
     await loadBuddies();
   }
@@ -110,29 +115,40 @@ export default function BuddyTab() {
         keyExtractor={(b) => String(b.id)}
         ListHeaderComponent={
           <View>
-            {/* Zoeken */}
+            {/* Mensen met dezelfde doelen */}
             <GlassCard className="p-4 mb-4">
-              <Text className="text-white/70 text-xs font-bold mb-2 uppercase tracking-widest">
-                Buddy zoeken
+              <Text className="text-white/70 text-xs font-bold mb-3 uppercase tracking-widest">
+                Mensen met dezelfde doelen
               </Text>
-              <TextInput
-                className="text-white text-sm py-2 border-b border-white/20"
-                placeholder="Gebruikersnaam..."
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={searchQuery}
-                onChangeText={handleSearch}
-                autoCapitalize="none"
-              />
-              {searchResults.map((u) => (
-                <Pressable
-                  key={u.id}
-                  onPress={() => handleAdd(u.id)}
-                  className="flex-row justify-between items-center py-3 border-t border-white/10"
-                >
-                  <Text className="text-white font-semibold">{u.username}</Text>
-                  <Text className="text-green-400 text-xs font-bold">+ Toevoegen</Text>
-                </Pressable>
-              ))}
+              {matchLoading ? (
+                <Text className="text-white/45 text-sm">Zoeken...</Text>
+              ) : goals.length === 0 ? (
+                <Text className="text-white/45 text-sm">
+                  Voeg doelen toe via Planning om buddies te vinden
+                </Text>
+              ) : matches.length === 0 ? (
+                <Text className="text-white/45 text-sm">
+                  Nog niemand met dezelfde doelen gevonden 🌱
+                </Text>
+              ) : (
+                matches.map((u) => (
+                  <Pressable
+                    key={u.id}
+                    onPress={() => handleAdd(u.id)}
+                    className="flex-row justify-between items-center py-3 border-t border-white/10"
+                  >
+                    <View>
+                      <Text className="text-white font-semibold">{u.username}</Text>
+                      <Text className="text-white/45 text-xs mt-0.5">
+                        {u.goals
+                          .filter((g) => goals.some((myG) => myG.title === g))
+                          .join(" · ")}
+                      </Text>
+                    </View>
+                    <Text className="text-green-400 text-xs font-bold">+ Toevoegen</Text>
+                  </Pressable>
+                ))
+              )}
             </GlassCard>
 
             {/* Inkomende verzoeken */}
@@ -148,7 +164,7 @@ export default function BuddyTab() {
                   >
                     <Text className="text-white font-semibold">{b.other.username}</Text>
                     <Pressable
-                      onPress={() => handleAccept(String(b.id))}
+                      onPress={() => handleAccept(b.id)}
                       className="bg-primary rounded-2xl px-4 py-1.5"
                     >
                       <Text className="text-white text-xs font-bold">Accepteren</Text>
@@ -208,7 +224,7 @@ export default function BuddyTab() {
             <GlassCard className="p-6 items-center">
               <Text style={{ fontSize: 32 }} className="mb-2">🌱</Text>
               <Text className="text-white/55 text-sm text-center">
-                Zoek een gebruikersnaam hierboven om een buddy uit te nodigen
+                Voeg hierboven iemand met dezelfde doelen toe als buddy
               </Text>
             </GlassCard>
           ) : null

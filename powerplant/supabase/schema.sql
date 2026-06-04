@@ -20,7 +20,7 @@ create table if not exists public.profiles (
 );
 
 create table if not exists public.buddies (
-  id           uuid primary key default gen_random_uuid(),
+  id           bigserial primary key,
   requester_id uuid not null references public.profiles (id) on delete cascade,
   receiver_id  uuid not null references public.profiles (id) on delete cascade,
   status       text not null default 'pending'
@@ -30,8 +30,8 @@ create table if not exists public.buddies (
 );
 
 create table if not exists public.messages (
-  id        uuid primary key default gen_random_uuid(),
-  buddy_id  uuid not null references public.buddies (id) on delete cascade,
+  id        bigserial primary key,
+  buddy_id  bigint not null references public.buddies (id) on delete cascade,
   sender_id uuid not null references public.profiles (id) on delete cascade,
   body      text not null,
   type      text not null default 'text',
@@ -136,6 +136,12 @@ create policy messages_insert on public.messages
         and status = 'accepted'
     )
   );
+
+-- ---------------------------------------------------------------------------
+--  4. Goals column (buddy goal-matching)
+-- ---------------------------------------------------------------------------
+alter table public.profiles
+  add column if not exists goals text[] not null default '{}';
 
 -- ---------------------------------------------------------------------------
 --  Klaar. De app kan nu registreren, inloggen, buddy's zoeken en chatten.
