@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { FakeStatusBar } from "../../components/FakeStatusBar";
 import { GlassCard } from "../../components/GlassCard";
@@ -8,6 +8,7 @@ import { PrimaryButton } from "../../components/buttons";
 import { useBuddyStore } from "../../stores/useBuddyStore";
 import { useUserStore } from "../../stores/useUserStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
+import { supabase } from "../../lib/supabase";
 import type { Buddy } from "../../features/buddy/types";
 
 export default function BuddyTab() {
@@ -27,8 +28,31 @@ export default function BuddyTab() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) loadAll();
+    if (!isLoggedIn) return;
+    loadAll();
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel("buddies-live")
+        .on("postgres_changes", { event: "*", schema: "public", table: "buddies" }, () => {
+          loadAll();
+        })
+        .subscribe();
+    } catch { /* realtime niet beschikbaar */ }
+
+    const id = setInterval(loadAll, 10_000);
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      clearInterval(id);
+    };
   }, [isLoggedIn]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isLoggedIn) loadAll();
+    }, [isLoggedIn])
+  );
 
   async function loadAll() {
     setMatchLoading(true);

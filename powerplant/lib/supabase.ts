@@ -27,7 +27,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // In een mobiele app komt de sessie niet via de URL binnen.
     detectSessionInUrl: false,
+  },
+  realtime: {
+    // React Native heeft een ingebouwde WebSocket — vertel dat aan Supabase
+    transport: global.WebSocket,
   },
 });
