@@ -11,6 +11,7 @@ import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { DuskBackground } from "../../components/DuskBackground";
 import { useBuddyStore } from "../../stores/useBuddyStore";
 import * as buddyApi from "../../features/buddy/api/buddyApi";
+import { supabase } from "../../lib/supabase";
 import { loadCachedMessages, cacheMessages } from "../../features/buddy/storage/buddyStorage";
 import type { Message } from "../../features/buddy/types";
 
@@ -44,8 +45,42 @@ export default function ChatScreen() {
       if (cached.length > 0) setMessages(cached);
     });
     sync();
+    // Realtime subscription — reageert meteen op nieuwe berichten
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`messages-${buddyId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages", filter: `buddy_id=eq.${buddyId}` },
+          (payload) => {
+            const row = payload.new as {
+              id: number; buddy_id: number; sender_id: string;
+              body: string; type: string; sent_at: string;
+            };
+            const newMsg: Message = {
+              id: row.id, buddyId: row.buddy_id, senderId: row.sender_id,
+              body: row.body, type: row.type, sentAt: row.sent_at,
+            };
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              const filtered = prev.filter(
+                (m) => !(m.pending && m.senderId === newMsg.senderId && m.body === newMsg.body)
+              );
+              return [...filtered, newMsg];
+            });
+          }
+        )
+        .subscribe();
+    } catch {
+      // Realtime niet beschikbaar — polling wordt gebruikt als fallback
+    }
+    // Polling als fallback (WebSocket valt soms weg)
     const id = setInterval(sync, 5_000);
-    return () => clearInterval(id);
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      clearInterval(id);
+    };
   }, [buddyIdParam]);
 
   // Sync opnieuw wanneer het scherm de focus terugkrijgt
@@ -81,7 +116,13 @@ export default function ChatScreen() {
 
     try {
       const sent = await buddyApi.sendMessage(buddyId, text, "preset");
-      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? sent : m)));
+      setMessages((prev) => {
+        // Als Realtime het al heeft toegevoegd, verwijder alleen de optimistische versie
+        if (prev.some((m) => m.id === sent.id)) {
+          return prev.filter((m) => m.id !== optimistic.id);
+        }
+        return prev.map((m) => (m.id === optimistic.id ? sent : m));
+      });
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
     }
