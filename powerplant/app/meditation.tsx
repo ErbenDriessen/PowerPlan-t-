@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useKeepAwake } from "expo-keep-awake";
+import { useAudioPlayer } from "expo-audio";
 import { DuskBackground } from "../components/DuskBackground";
 import { FakeStatusBar } from "../components/FakeStatusBar";
 import { GlassCard } from "../components/GlassCard";
@@ -13,12 +14,47 @@ import { BackButton } from "../components/BackButton";
 type Phase = "setup" | "running" | "done";
 type Ambient = "stilte" | "bos" | "regen";
 
+// Statische requires (Metro bundelt deze in de app). Vervang gerust door
+// eigen bestanden met dezelfde naam in assets/sounds/.
+const SOUNDS: Record<Exclude<Ambient, "stilte">, number> = {
+  bos: require("../assets/sounds/bos.wav"),
+  regen: require("../assets/sounds/regen.wav"),
+};
+
 export default function Meditation() {
   useKeepAwake();
   const [phase, setPhase] = useState<Phase>("setup");
   const [minutes, setMinutes] = useState(5);
   const [ambient, setAmbient] = useState<Ambient>("stilte");
   const [remaining, setRemaining] = useState(0);
+
+  // Achtergrondgeluid (US 5.6/5.7): speelt zacht en loopend tijdens het
+  // lopen, en stopt zodra de meditatie eindigt of je weggaat.
+  const player = useAudioPlayer(null);
+  useEffect(() => {
+    if (phase === "running" && ambient !== "stilte") {
+      try {
+        player.replace(SOUNDS[ambient]);
+        player.loop = true;
+        player.volume = 0.55;
+        player.play();
+      } catch {}
+    } else {
+      try {
+        player.pause();
+      } catch {}
+    }
+  }, [phase, ambient]);
+
+  // Zeker weten dat het geluid stopt bij het verlaten van het scherm.
+  useEffect(
+    () => () => {
+      try {
+        player.pause();
+      } catch {}
+    },
+    [],
+  );
 
   // tick during running
   useEffect(() => {
@@ -114,7 +150,9 @@ export default function Meditation() {
             </View>
 
             <Text className="text-white/40 text-[11px] mt-3">
-              🔈 Geluiden volgen later — kies vast de sfeer die bij je past.
+              {ambient === "stilte"
+                ? "🔈 Stilte — geen achtergrondgeluid."
+                : "🔈 Speelt zacht en loopend tijdens je meditatie."}
             </Text>
           </GlassCard>
 
