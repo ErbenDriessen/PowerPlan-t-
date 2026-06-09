@@ -57,7 +57,7 @@ const SLOTS: Slot[] = [
   // visually clips a few pixels of trunk — the "this scene continues
   // outside the window" illusion.
   { id: 1, layer: 3, species: 2, scale: 1.0, left: -5, bottom: -6 },
-  { id: 2, layer: 3, species: 1, scale: 0.9, left: 22, bottom: -2 },
+  { id: 2, layer: 3, species: 1, scale: 0.9, left: 22, bottom: -5 },
   { id: 3, layer: 2, species: 0, scale: 0.75, left: 50, bottom: 11 },
   { id: 4, layer: 2, species: 1, scale: 0.68, left: 72, bottom: 14 },
   { id: 5, layer: 2, species: 2, scale: 0.62, left: 92, bottom: 17 },
@@ -83,10 +83,20 @@ const PROGRESSION = [
   6, 20, 7, 19, 8, 18, 9, 17, 10, 16,
 ] as const;
 
-// Per-stage scale for the pot tree — early stages are pushed extra
-// large so a freshly-planted sapling (only 17×20 px native) still
-// reads as a real plant on a phone screen.
-const POT_TREE_SCALE = [2.0, 1.7, 1.4, 1.1, 1.0] as const;
+// Per-stage scale for the pot tree. The native sprite heights already
+// grow (≈20/36/51/66/66 px), but stage 4 and 5 share the SAME height in
+// the atlas (only the fruit differs), so without help the on-screen tree
+// would flatten out — and the old curve even shrank at the last step.
+// These factors are tuned so the *rendered* height climbs steadily with
+// a clear jump at every stage, while keeping the tiny sapling readable.
+// Resulting heights (species 0): ≈38 → 56 → 76 → 96 → 116 px.
+const POT_TREE_SCALE = [1.9, 1.55, 1.5, 1.45, 1.75] as const;
+
+// How deep each stage's trunk sinks into the soil (design px). The
+// bigger stages have a bare trunk at the base, so they sit a touch
+// deeper to tuck behind the pot's soil rim instead of floating above it
+// (which would expose the rounded soil edge around the trunk).
+const POT_TREE_SINK = [0, 1, 3, 5, 6] as const;
 
 function rectAt(spec: number): SpriteRect {
   return getMatureTreeSprite(spec);
@@ -397,12 +407,14 @@ function ForestTrees({
 
   const layered: Record<Layer, Placed[]> = { 1: [], 2: [], 3: [] };
   placed.forEach((p) => layered[p.slot.layer].push(p));
-  // Tallest renders last within each layer for clean z-order.
+  // Painter's order within a layer: trees further back draw first so the
+  // closer ones overlap them. Depth comes from the SLOT (its scale, with
+  // bottom as tiebreaker) — never from the rendered height, otherwise a
+  // taller chosen species in a back slot would wrongly cover a front one.
   ([1, 2, 3] as Layer[]).forEach((layer) => {
     layered[layer].sort((a, b) => {
-      const ha = rectAt(a.species).h * a.slot.scale;
-      const hb = rectAt(b.species).h * b.slot.scale;
-      return ha - hb;
+      if (a.slot.scale !== b.slot.scale) return a.slot.scale - b.slot.scale;
+      return b.slot.bottom - a.slot.bottom;
     });
   });
 
@@ -517,6 +529,7 @@ function PotTree({
   const stageIdx = Math.max(0, Math.min(POT_TREE_SCALE.length - 1, stage - 1));
   const sprite = getTreeSprite(species, stageIdx);
   const stageScale = POT_TREE_SCALE[stageIdx];
+  const sink = POT_TREE_SINK[stageIdx];
   const potW = 90 * scale;
   const potH = 60 * scale;
   const containerW = 90 * scale;
@@ -534,7 +547,7 @@ function PotTree({
         height: containerH,
       }}
     >
-      <View style={{ position: "absolute", left: 0, right: 0, bottom: 50 * scale, alignItems: "center" }}>
+      <View style={{ position: "absolute", left: 0, right: 0, bottom: (50 - sink) * scale, alignItems: "center" }}>
         <PlantSprite rect={sprite} height={treeH} />
       </View>
       <View style={{ position: "absolute", left: 0, bottom: 0 }}>

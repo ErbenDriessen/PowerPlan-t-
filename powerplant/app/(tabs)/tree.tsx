@@ -7,6 +7,7 @@ import { Forest } from "../../components/Forest";
 import { GlassCard } from "../../components/GlassCard";
 import { Mascot } from "../../components/Mascot";
 import { WindowControls } from "../../components/WindowControls";
+import { useTreeDemo } from "../../hooks/useTreeDemo";
 import { getISOWeek, todayKey, weekDays } from "../../lib/dates";
 import { nowMinutes } from "../../lib/skyScene";
 import { useDailyProgressStore } from "../../stores/useDailyProgressStore";
@@ -53,7 +54,13 @@ export default function MijnBoom() {
   const showWindowControls = usePrefsStore((s) => s.showWindowControls);
   const windowOverrideMinutes = usePrefsStore((s) => s.windowOverrideMinutes);
   const setWindowOverrideMinutes = usePrefsStore((s) => s.setWindowOverrideMinutes);
+  const demoPlaying = usePrefsStore((s) => s.demoPlaying);
+  const setDemoPlaying = usePrefsStore((s) => s.setDemoPlaying);
+  const demoDateKey = usePrefsStore((s) => s.demoDateKey);
   const { width: screenW } = useWindowDimensions();
+
+  // Stuurt de timelapse-demo aan zodra demoPlaying aangaat (achter dev-toggle).
+  useTreeDemo();
 
   // Live device clock for the window scene; ticks once a minute (the
   // atmosphere changes gradually, so that is smooth enough and free).
@@ -66,19 +73,36 @@ export default function MijnBoom() {
   // Manual override (slider/play) wins; otherwise follow the live clock.
   const sceneMinutes = windowOverrideMinutes ?? liveMinutes;
 
-  const today = todayKey();
-  const weekNumber = getISOWeek(new Date());
+  // Tijdens de timelapse loopt een gesimuleerde "vandaag" door de week,
+  // zodat het grid dag voor dag kan vollopen. Anders gewoon de echte klok.
+  const demoActive = demoDateKey != null;
+  const weekRef = demoActive ? new Date(demoDateKey + "T00:00:00") : new Date();
+  const today = demoActive ? demoDateKey : todayKey();
+  const weekNumber = getISOWeek(weekRef);
 
   const goalsDoneToday = goals.filter((g) => g.done).length;
 
   const week = useMemo(() => {
-    const days = weekDays(new Date());
+    const days = weekDays(weekRef);
     return days.map((date, i) => {
       const record = history.find((r) => r.date === date);
-      const state = cellState(date, today, goalsDoneToday, record);
+      // In de demo bepaalt de historie de vinkjes (een dag krijgt een vinkje
+      // zodra het doel die dag is gedaan); de gesimuleerde "vandaag" is de
+      // cursor. Een afgevinkte huidige dag toont als today-done.
+      let state: CellState;
+      if (demoActive) {
+        if (record && record.goalsDone >= 1) {
+          state = date === today ? "today-done" : "done";
+        } else if (date === today) state = "today";
+        else if (date > today) state = "future";
+        else state = "skip";
+      } else {
+        state = cellState(date, today, goalsDoneToday, record);
+      }
       return { date, state, letter: WEEKDAY_INITIALS[i] };
     });
-  }, [history, today, goalsDoneToday]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, today, goalsDoneToday, demoActive]);
 
   // "Days with progress this week" / "days elapsed in this week so far"
   const elapsed = week.filter((d) => d.date <= today).length;
@@ -141,7 +165,9 @@ export default function MijnBoom() {
           />
         </View>
 
-        {showWindowControls && (
+        {/* Tijdens de timelapse verdwijnt alle dev-bediening, zodat het
+            scherm een schone opname is van een gebruiker over de tijd. */}
+        {showWindowControls && !demoPlaying && (
           <>
             <WindowControls
               sceneMinutes={sceneMinutes}
@@ -181,6 +207,20 @@ export default function MijnBoom() {
                   <Text className="text-white font-bold text-sm">-50</Text>
                 </Pressable>
               </View>
+            </GlassCard>
+
+            {/* Timelapse voor opnames: schone start → boom groeit + bos vult
+                zich → dag scrollt → streak/week lopen mee → eindigt vol. */}
+            <GlassCard className="p-3 mb-3">
+              <Text className="text-white/45 text-[10px] font-bold uppercase tracking-widest mb-2">
+                🎬 dev · opname
+              </Text>
+              <Pressable
+                onPress={() => setDemoPlaying(true)}
+                className="bg-primary border border-primary-soft rounded-2xl px-4 py-3 items-center active:opacity-80"
+              >
+                <Text className="text-white font-bold text-sm">▶ Speel timelapse (reset + opname)</Text>
+              </Pressable>
             </GlassCard>
           </>
         )}

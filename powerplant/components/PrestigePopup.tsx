@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { getMatureTreeSprite } from "../lib/plantSprites";
 import { SPECIES } from "../lib/species";
+import { usePrefsStore } from "../stores/usePrefsStore";
 import { useUserStore } from "../stores/useUserStore";
 import { CelebrationFX } from "./CelebrationFX";
 import { PlantSprite } from "./PlantSprite";
@@ -32,10 +33,13 @@ export function PrestigePopup() {
   const pendingPrestige = useUserStore((s) => s.pendingPrestige);
   const currentSpecies = useUserStore((s) => s.currentSpecies);
   const completePrestige = useUserStore((s) => s.completePrestige);
+  const demoPlaying = usePrefsStore((s) => s.demoPlaying);
   const pathname = usePathname();
 
+  // Tijdens de timelapse-demo kiest de orchestrator zelf de volgende soort,
+  // dus de popup moet niet tussendoor opduiken.
   const suppressed = SUPPRESS_PREFIXES.some((p) => pathname.startsWith(p));
-  const visible = pendingPrestige && !suppressed;
+  const visible = pendingPrestige && !suppressed && !demoPlaying;
 
   const [phase, setPhase] = useState<"celebrate" | "picker">("celebrate");
   const [selected, setSelected] = useState<number | null>(null);
