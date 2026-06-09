@@ -192,6 +192,12 @@ export default function Settings() {
             >
               <Text className="text-white font-bold text-sm">-50</Text>
             </Pressable>
+            <Pressable
+              onPress={() => addPoints(750 - points, 0)}
+              className="bg-primary-soft rounded-2xl px-4 py-2 active:opacity-80"
+            >
+              <Text className="text-white font-bold text-sm">Naar 750 (prestige)</Text>
+            </Pressable>
           </View>
         </GlassCard>
 
@@ -211,6 +217,29 @@ export default function Settings() {
             <Switch
               value={prefs.showWindowControls}
               onValueChange={() => prefs.toggle("showWindowControls")}
+              trackColor={{ true: "#7CB342", false: "rgba(255,255,255,0.15)" }}
+              thumbColor="#fff"
+            />
+          </View>
+        </GlassCard>
+
+        {/* Testmodus: snelle timers (voor de tester) */}
+        <GlassCard className="mb-3 p-4">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-white text-sm font-semibold mb-1">
+                Testmodus: snelle timers
+              </Text>
+              <Text className="text-white/55 text-xs">
+                Laat focus- en meditatie-timers in seconden lopen i.p.v. minuten (25 "min"
+                wordt 25 sec). Zo kan een tester het testplan snel doorlopen zonder hele
+                blokken uit te zitten. Ademhaling blijft op echt tempo, want dat ritme wordt
+                juist getest. Standaard uit.
+              </Text>
+            </View>
+            <Switch
+              value={prefs.fastTimers}
+              onValueChange={() => prefs.toggle("fastTimers")}
               trackColor={{ true: "#7CB342", false: "rgba(255,255,255,0.15)" }}
               thumbColor="#fff"
             />

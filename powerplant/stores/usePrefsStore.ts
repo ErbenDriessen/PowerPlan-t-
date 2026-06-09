@@ -7,7 +7,8 @@ type BooleanKey =
   | "notifications"
   | "darkMode"
   | "bedtimeReminder"
-  | "showWindowControls";
+  | "showWindowControls"
+  | "fastTimers";
 
 type PrefsState = {
   sound: boolean;
@@ -17,6 +18,10 @@ type PrefsState = {
   /** Toon de demo-tijdbediening (slider + speel-knop) direct op het Mijn
    *  boom-scherm, zodat je tijdens een demo niet naar Meer hoeft. */
   showWindowControls: boolean;
+  /** Testmodus: laat focus- en meditatie-timers in seconden lopen i.p.v.
+   *  minuten (25 "min" → 25 sec), zodat een tester snel door de sessies
+   *  heen kan. Alleen voor de TestBuild — standaard uit. */
+  fastTimers: boolean;
   /** Handmatige tijd voor het raam-uitzicht, in minuten sinds middernacht
    *  (0..1440). `null` (standaard) laat het raam de echte klok volgen. */
   windowOverrideMinutes: number | null;
@@ -41,6 +46,7 @@ export const usePrefsStore = create<PrefsState>()(
       darkMode: true,
       bedtimeReminder: true,
       showWindowControls: false,
+      fastTimers: false,
       windowOverrideMinutes: null,
       demoPlaying: false,
       demoDateKey: null,

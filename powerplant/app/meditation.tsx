@@ -10,6 +10,7 @@ import { Mascot } from "../components/Mascot";
 import { PrimaryButton } from "../components/buttons";
 import { ProgressRing } from "../components/ProgressRing";
 import { BackButton } from "../components/BackButton";
+import { usePrefsStore } from "../stores/usePrefsStore";
 
 type Phase = "setup" | "running" | "done";
 type Ambient = "stilte" | "bos" | "regen";
@@ -27,6 +28,11 @@ export default function Meditation() {
   const [minutes, setMinutes] = useState(5);
   const [ambient, setAmbient] = useState<Ambient>("stilte");
   const [remaining, setRemaining] = useState(0);
+
+  // Testmodus: laat de meditatie in seconden i.p.v. minuten lopen, zodat een
+  // tester de hele sessie snel kan doorlopen (3 "min" → 3 sec).
+  const fastTimers = usePrefsStore((s) => s.fastTimers);
+  const unit = fastTimers ? 1 : 60;
 
   // Achtergrondgeluid (US 5.6/5.7): speelt zacht en loopend tijdens het
   // lopen, en stopt zodra de meditatie eindigt of je weggaat.
@@ -75,7 +81,7 @@ export default function Meditation() {
   const fmt = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const total = minutes * 60;
+  const total = minutes * unit;
   const progress = total ? 1 - remaining / total : 0;
 
   if (phase === "setup") {
@@ -159,7 +165,7 @@ export default function Meditation() {
           <PrimaryButton
             label="Start meditatie"
             onPress={() => {
-              setRemaining(minutes * 60);
+              setRemaining(minutes * unit);
               setPhase("running");
             }}
           />

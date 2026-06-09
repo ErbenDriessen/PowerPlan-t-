@@ -1,4 +1,10 @@
 import { create } from "zustand";
+import { usePrefsStore } from "./usePrefsStore";
+
+// Aantal seconden dat één ingestelde "minuut" duurt. In de normale app is
+// dat 60; met de testmodus aan is het 1, zodat een tester een focusblok in
+// seconden i.p.v. minuten kan doorlopen.
+const unitSeconds = () => (usePrefsStore.getState().fastTimers ? 1 : 60);
 
 type FocusState = {
   dur: number;
@@ -44,15 +50,16 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   setRounds: (n) => set({ rnds: n }),
   start: () => {
     const { dur } = get();
+    const unit = unitSeconds();
     const now = Date.now();
     set({
       running: true,
       isBreak: false,
       currentRnd: 1,
-      remaining: dur * 60,
-      total: dur * 60,
+      remaining: dur * unit,
+      total: dur * unit,
       finished: false,
-      phaseEndAt: now + dur * 60 * 1000,
+      phaseEndAt: now + dur * unit * 1000,
       completedWorkRounds: 0,
     });
   },
@@ -73,18 +80,19 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     let currentRnd = s.currentRnd;
     let phaseEndAt: number | null = s.phaseEndAt;
     let completedWorkRounds = s.completedWorkRounds;
+    const unit = unitSeconds();
 
     while (phaseEndAt !== null && phaseEndAt <= now) {
       if (!isBreak) {
         // Work just finished -> start break (anchored to when work ended).
         completedWorkRounds += 1;
         isBreak = true;
-        phaseEndAt = phaseEndAt + s.brk * 60 * 1000;
+        phaseEndAt = phaseEndAt + s.brk * unit * 1000;
       } else if (currentRnd < s.rnds) {
         // Break finished -> start next work round.
         isBreak = false;
         currentRnd += 1;
-        phaseEndAt = phaseEndAt + s.dur * 60 * 1000;
+        phaseEndAt = phaseEndAt + s.dur * unit * 1000;
       } else {
         // Last break done -> session finished.
         phaseEndAt = null;
@@ -108,7 +116,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
         isBreak,
         currentRnd,
         remaining: Math.max(0, Math.ceil((phaseEndAt - now) / 1000)),
-        total: phaseDur * 60,
+        total: phaseDur * unit,
         phaseEndAt,
         completedWorkRounds,
       });
