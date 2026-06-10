@@ -37,13 +37,6 @@ export default function Rust() {
       variant: "default",
       onPress: () => router.push("/dagboek" as any),
     },
-    {
-      emoji: "📅",
-      title: "Bekijk morgen",
-      sub: "rustig vooruitkijken",
-      variant: "green",
-      onPress: () => router.push("/(tabs)/planning"),
-    },
   ];
 
   return (

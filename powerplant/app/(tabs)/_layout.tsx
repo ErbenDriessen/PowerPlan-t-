@@ -39,32 +39,12 @@ const TAB_META: Record<
       <Ionicons name={focused ? "home" : "home-outline"} size={ICON_SIZE} color={color} />
     ),
   },
-  planning: {
-    label: "Planning",
-    render: (focused, color) => (
-      <Ionicons
-        name={focused ? "calendar" : "calendar-outline"}
-        size={ICON_SIZE}
-        color={color}
-      />
-    ),
-  },
   tree: {
     label: "Mijn boom",
     render: (focused, color) => (
       <MaterialCommunityIcons
         name={focused ? "tree" : "tree-outline"}
         size={ICON_SIZE + 2}
-        color={color}
-      />
-    ),
-  },
-  buddy: {
-    label: "Buddy",
-    render: (focused, color) => (
-      <Ionicons
-        name={focused ? "people" : "people-outline"}
-        size={ICON_SIZE}
         color={color}
       />
     ),
@@ -170,9 +150,7 @@ export default function TabsLayout() {
       }}
     >
       <MaterialTopTabs.Screen name="home" />
-      <MaterialTopTabs.Screen name="planning" />
       <MaterialTopTabs.Screen name="tree" />
-      <MaterialTopTabs.Screen name="buddy" />
       <MaterialTopTabs.Screen name="rust" />
       <MaterialTopTabs.Screen name="settings" />
     </MaterialTopTabs>

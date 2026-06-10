@@ -111,7 +111,7 @@ export default function Settings() {
         </Text>
         <GlassCard className="mb-5 overflow-hidden">
           <Pressable
-            onPress={() => router.push("/(tabs)/planning")}
+            onPress={() => router.push("/(tabs)/home")}
             className="px-4 py-3.5 flex-row items-center justify-between border-b border-white/10"
           >
             <View className="flex-row items-center gap-3">

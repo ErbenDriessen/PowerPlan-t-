@@ -14,7 +14,7 @@ import { useUserStore } from "../stores/useUserStore";
 
 // Each chip turns into an actual goal when picked. The description is a
 // suggested daily action so the goal feels concrete from the first day;
-// the user can edit or replace it later from the Planning screen.
+// the user can edit or replace it later from the home screen.
 const GOAL_OPTIONS: { title: string; description: string }[] = [
   { title: "Meer bewegen", description: "Korte wandeling van 15 min" },
   { title: "Betere slaap", description: "Telefoon weg om 22:00" },
